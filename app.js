@@ -1,3 +1,6 @@
+/* Version check: index.html and app.js must come from the same update */
+(function(){const m=document.querySelector('meta[name="tally-version"]');
+  if(!m||m.content!=='13'){document.body.innerHTML='<div style="font:16px/1.5 system-ui;padding:32px 24px;max-width:480px;margin:auto"><h2 style="margin:0 0 8px">Update incomplete</h2><p>Some Tally files are from an older version. Upload <b>all files</b> from the latest tally.zip to GitHub, then reopen the app.</p><p style="opacity:.7">Your saved data is safe.</p></div>';throw new Error('Tally version mismatch');}})();
 /* ================= Data ================= */
 const KEY='family-budget-v1', THEME='family-budget-theme', BKP='family-budget-lastbackup';
 const store={get(k){try{return localStorage.getItem(k)}catch(_){return null}},set(k,v){try{localStorage.setItem(k,v);return true}catch(_){return false}}};

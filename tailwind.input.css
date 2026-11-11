@@ -46,7 +46,7 @@
   .tag-ok    { @apply bg-teal-100 text-teal-800 dark:bg-teal-800/60 dark:text-teal-200; }
   .tag-warn  { @apply bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300; }
   .tag-bad   { @apply bg-red-100 text-red-700 dark:bg-red-400/15 dark:text-red-300; }
-  .input     { @apply min-h-12 w-full rounded-2xl border-[1.5px] border-line bg-mist px-3.5 text-base outline-none focus:border-teal-600 focus:bg-white aria-invalid:border-red-600 dark:border-teal-700 dark:bg-teal-950 dark:focus:border-reef dark:aria-invalid:border-red-400; }
+  .input     { @apply min-h-12 w-full rounded-2xl border-[1.5px] border-line bg-mist px-3.5 text-base outline-none caret-teal-700 focus:border-teal-600 focus:bg-white aria-invalid:border-red-600 dark:border-teal-700 dark:bg-teal-950 dark:text-teal-50 dark:caret-reef dark:placeholder:text-teal-200/40 dark:focus:border-reef dark:focus:bg-teal-950 dark:aria-invalid:border-red-400; }
   .label     { @apply mb-1.5 block text-[13px] font-semibold text-teal-900/60 dark:text-teal-200/70; }
   .err       { @apply mt-1 text-[13px] text-red-700 empty:hidden dark:text-red-300; }
   .icon      { @apply size-[22px] shrink-0 fill-none stroke-current stroke-2; stroke-linecap: round; stroke-linejoin: round; }
@@ -61,6 +61,7 @@
 
 /* One orchestrated moment: tally marks draw in on Home */
 @keyframes draw { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
+@keyframes shake { 10%,90%{transform:translateX(-2px)} 20%,80%{transform:translateX(4px)} 30%,50%,70%{transform:translateX(-8px)} 40%,60%{transform:translateX(8px)} }
 @keyframes up { from { transform: translateY(24px); opacity: .4 } to { transform: none; opacity: 1 } }
 .tally.animate line { stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw .45s var(--ease-out-soft) forwards; }
 @media (prefers-reduced-motion: reduce) {
