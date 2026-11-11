@@ -3,6 +3,7 @@ const KEY='family-budget-v1', THEME='family-budget-theme', BKP='family-budget-la
 const store={get(k){try{return localStorage.getItem(k)}catch(_){return null}},set(k,v){try{localStorage.setItem(k,v);return true}catch(_){return false}}};
 /* --- Validation: every piece of data is checked and cleaned before use --- */
 const LIST_KEYS=['income','budget','savings','fixed','bills','gave'];
+const DUE_LISTS=['income','savings','fixed','bills'];
 const MONTH_RE=/^\d{4}-(0[1-9]|1[0-2])$/;
 const str=(v,max=60)=>typeof v==='string'?v.replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,max):'';
 const money=v=>{const n=Number(v);return isFinite(n)&&n>=0&&n<1e12?Math.round(n*100)/100:0};
@@ -14,6 +15,7 @@ function cleanItem(x,list){
   if(list==='savings'){o.who=str(x.who)||'Other';o.cur=x.cur==='USD'?'USD':'MVR'}
   if(list==='budget'){o.spent=money(x.spent);delete o.done}
   if(list==='gave'&&x.me===true) o.me=true;
+  if(DUE_LISTS.includes(list)){const d=Number(x.due); if(Number.isInteger(d)&&d>=1&&d<=31) o.due=d;}
   return o;
 }
 const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
@@ -42,15 +44,26 @@ function cleanData(d){
   }).filter(Boolean);
   return out;
 }
-let S={months:{},accounts:[]};
-try{
-  const raw=store.get(KEY);
-  if(raw) S=cleanData(JSON.parse(raw));
-}catch(_){
-  // Saved data unreadable: keep a copy instead of crashing, start clean
-  try{store.set(KEY+'-unreadable-'+Date.now(),store.get(KEY)||'')}catch(__){}
-  S={months:{},accounts:[]};
+/* ================= Encryption (Web Crypto: PBKDF2-SHA256 → AES-256-GCM) ================= */
+const ENC_KEY=KEY+'-enc', FAILS='tally-fails', AUTOLOCK='tally-autolock', HIDE='tally-hide';
+const ITER=250000;
+const b64=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
+const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+async function deriveKey(secret,salt,iter){
+  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
 }
+async function encryptText(key,text){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(text));return {iv:b64(iv),ct:b64(ct)}}
+async function decryptText(key,iv,ct){return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(iv)},key,unb64(ct)))}
+function readEnc(){try{const o=JSON.parse(store.get(ENC_KEY)||'null');return o&&o.v===1&&typeof o.salt==='string'&&typeof o.ct==='string'&&typeof o.iv==='string'?o:null}catch(_){return null}}
+function wipePlainCopies(){try{Object.keys(localStorage).forEach(k=>{if(k===KEY||k.startsWith(KEY+'-unreadable-'))localStorage.removeItem(k)})}catch(_){}}
+
+let S={months:{},accounts:[]}, cryptoKey=null, encMeta=readEnc(), LOCKED=!!encMeta;
+if(!LOCKED){
+  try{ const raw=store.get(KEY); if(raw) S=cleanData(JSON.parse(raw)); }
+  catch(_){ try{store.set(KEY+'-unreadable-'+Date.now(),store.get(KEY)||'')}catch(__){} S={months:{},accounts:[]}; }
+}
+let PRIV=store.get(HIDE)==='1';
 
 const LISTS={income:'Income',budget:'Budget',savings:'Savings',fixed:'Fixed expenses',bills:'House bills',gave:'Contributions'};
 const NOUN={income:'income',budget:'spending category',savings:'saving',fixed:'expense',bills:'bill',gave:'person',accounts:'account'};
@@ -75,13 +88,24 @@ let tab=(location.hash||'').slice(1); if(tab==='fixed'||tab==='house') tab='bill
 const $=id=>document.getElementById(id);
 const mlabel=k=>{const[y,m]=String(k).split('-');return esc((MN[+m-1]||'')+' '+(/^\d{4}$/.test(y)?y:''))};
 const shift=(k,d)=>{let[y,m]=k.split('-').map(Number);m+=d;while(m>12){m-=12;y++}while(m<1){m+=12;y--}return y+'-'+String(m).padStart(2,'0')};
-const fmt=(n,c='MVR')=>{n=Number(n||0);const s=n.toLocaleString('en-US',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});return c==='USD'?'$'+s:s+'/-'};
+const fmt=(n,c='MVR')=>{if(PRIV)return c==='USD'?'$•••••':'•••••/-';n=Number(n||0);const s=n.toLocaleString('en-US',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});return c==='USD'?'$'+s:s+'/-'};
 const sum=(a,f=()=>true)=>a.filter(f).reduce((t,x)=>t+Number(x.amt||0),0);
 const uid=newId;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const M=()=>S.months[cur];
 const pct=(a,b)=>b?Math.round(a/b*100):0;
-function save(){ if(!store.set(KEY,JSON.stringify(S))) toast('Could not save — phone storage is blocked'); }
+let saveChain=Promise.resolve();
+function save(){
+  if(LOCKED) return saveChain;              // never overwrite while locked
+  const json=JSON.stringify(S);
+  if(cryptoKey&&encMeta){
+    const key=cryptoKey, meta=encMeta;
+    saveChain=saveChain.then(async()=>{const {iv,ct}=await encryptText(key,json);
+      if(!store.set(ENC_KEY,JSON.stringify({...meta,iv,ct}))) toast('Could not save — phone storage is full or blocked');})
+      .catch(()=>toast('Could not save'));
+  } else if(!store.set(KEY,json)) toast('Could not save — phone storage is blocked');
+  return saveChain;
+}
 
 /* ================= Icons ================= */
 const IC={
@@ -95,7 +119,19 @@ const MUTE='text-teal-900/55 dark:text-teal-200/70';
 const CHIP='min-h-9 rounded-full border border-line bg-white px-3 text-sm aria-pressed:border-teal-600 aria-pressed:bg-teal-50 aria-pressed:text-teal-800 dark:border-teal-700 dark:bg-teal-950 dark:aria-pressed:border-emerald-400 dark:aria-pressed:bg-teal-800 dark:aria-pressed:text-emerald-200';
 
 /* ================= Render ================= */
+/* iPhone: data in a Safari tab can be lost (Private Browsing wipes it; Safari also clears
+   site data after 7 days unused). The Home Screen app keeps its own, separate storage. */
+const IS_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const STANDALONE=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;
+function browserWarning(){
+  if(!IS_IOS||STANDALONE) return '';
+  return `<div role="alert" class="mb-4 rounded-2xl bg-red-100 px-4 py-3 text-red-900 dark:bg-red-400/15 dark:text-red-100">
+    <p class="font-semibold">Your data may be lost in Safari</p>
+    <p class="mt-1 text-sm">You're using Tally in a Safari tab. Private Browsing deletes everything when the tab closes, and Safari can clear it after 7 days.
+    Tap <b>Share</b>, then <b>Add to Home Screen</b>, and always open Tally from that icon. The icon has its own storage, so enter or restore your data there.</p></div>`;
+}
 function render(){
+  if(LOCKED){ $('app').innerHTML=''; return; }
   const isNow=cur===thisMonth;
   $('mtitle').innerHTML=`${mlabel(cur)}<span class="block text-xs font-medium ${MUTE}">${isNow?'This month':'Tap to go to this month'}</span>`;
   document.querySelectorAll('#nav [data-tab]').forEach(b=>b.dataset.tab===tab?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
@@ -104,9 +140,10 @@ function render(){
   if(tab==='more') h=renderMore();
   else if(!m) h=renderNoMonth();
   else h={home:renderHome,budget:renderBudget,spending:renderSpending,savings:renderSavings,bills:renderBills}[tab](m);
-  $('app').innerHTML=h;
+  $('app').innerHTML=browserWarning()+h;
   $('fab').classList.toggle('hidden',tab==='more');
-  if(tab==='home'&&document.querySelector('.tally.animate')) countUp();
+  if(tab==='home'&&document.querySelector('.tally.animate')&&!PRIV) countUp();
+  $('eye').setAttribute('aria-pressed',PRIV); $('eye').setAttribute('aria-label',PRIV?'Show amounts':'Hide amounts');
 }
 const GRID2='md:grid md:grid-cols-2 md:items-start md:gap-4 md:[&>*]:mb-0 mb-4';
 function pageHead(t,sub,action=''){return `<div class="mx-1 mt-1 mb-4 flex items-end justify-between gap-2 [&>.tag]:shrink-0 [&>.tag]:whitespace-nowrap"><div class="min-w-0"><h2 class="text-[30px] leading-tight font-semibold tracking-tight">${t}</h2>${sub?`<p class="mt-0.5 text-sm ${MUTE}">${sub}</p>`:''}</div>${action}</div>`}
@@ -153,7 +190,10 @@ function renderHome(m){
     ${kpi('House balance',`<span class="tag ${tone} text-lg!">${rem<0?'−':''}${fmt(Math.abs(rem))}</span>`,bt?(rem===0?'Fully covered':rem>0?'Extra collected':'Still short'):'No shared bills',null,'bills')}
   </div>`;
   const todo=[]; for(const l of ['income','savings','fixed','bills','gave']) m[l].filter(x=>!x.done).forEach(x=>todo.push([l,x]));
-  h+=`<div class="card"><div class="card-h"><h3 class="card-t">Still to do</h3><span class="meta">${todo.length?todo.length+' left':''}</span></div>`;
+  const rank=x=>{const d=dueInfo(x);return d?(d.lvl===3?-100+x.due:x.due):99};
+  todo.sort((a,b)=>rank(a[1])-rank(b[1]));
+  const overdue=todo.filter(([l,x])=>(dueInfo(x)||{}).lvl===3).length;
+  h+=`<div class="card"><div class="card-h"><h3 class="card-t">Still to do</h3>${overdue?`<span class="tag tag-bad">${overdue} overdue</span>`:`<span class="meta">${todo.length?todo.length+' left':''}</span>`}</div>`;
   h+=todo.length?todo.map(([l,x])=>row(l,x,l==='savings'?esc(x.who)+' · '+LISTS[l]:l==='income'?'Income · not received yet':LISTS[l])).join('')
      :empty(`All done for ${MN[+cur.split('-')[1]-1]} 🎉`,'All income received, every transfer and bill ticked.');
   return h+'</div>';
@@ -179,7 +219,7 @@ function hero(m,T,done,total){
   return `<section class="mb-4 rounded-[30px] bg-lagoon px-5 pt-5 pb-5 text-white shadow-[0_24px_50px_-28px_rgba(6,48,43,.9)] ring-1 ring-white/5 md:px-7 md:pt-6 dark:bg-lagoon-2/60">
     <div class="flex items-start justify-between gap-3">
       <p class="text-sm text-teal-100/75">${T.inc?(neg?'Over your income by':'Left to plan this month'):'What’s left this month'}</p>
-      ${neg?`<span class="tag bg-red-400/20 text-red-200">Over</span>`:T.inc&&left===0?`<span class="tag bg-reef/20 text-reef">All planned</span>`:''}
+      ${neg&&T.inc?`<span class="tag bg-red-400/20 text-red-200">Over</span>`:T.inc&&left===0?`<span class="tag bg-reef/20 text-reef">All planned</span>`:''}
     </div>
     ${T.inc?`<p class="display mt-1 text-[46px] leading-none font-semibold tracking-tight tabular-nums md:text-[64px] ${neg?'text-red-200':''}"><span data-count="${Math.abs(left)}">${fmt(Math.abs(left)).replace('/-','')}</span><span class="ml-1 text-[22px] font-medium text-teal-100/60 md:text-[28px]">MVR</span></p>`
       :`<p class="display mt-2 text-[28px] leading-tight font-semibold tracking-tight">Add your income to see<br>what’s left each month</p>
@@ -332,7 +372,22 @@ function listCard(list,items,title,total,subFn){
     ${addBtn(list)}</section>`;
 }
 function addBtn(list,who=''){return `<button class="add-btn" data-act="add" data-list="${list}" ${who?`data-who="${esc(who)}"`:''}>${IC.plus} Add ${NOUN[list]}${who?' for '+esc(who):''}</button>`}
+const MS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function dueInfo(x,monthKey=cur){
+  if(!x.due) return null;
+  const [y,mo]=monthKey.split('-').map(Number), day=Math.min(x.due,new Date(y,mo,0).getDate()), when=`${day} ${MS[mo-1]}`;
+  if(x.done) return {lvl:0,txt:`Due ${when}`};
+  if(monthKey<thisMonth) return {lvl:3,txt:`Overdue, was due ${when}`};
+  if(monthKey>thisMonth) return {lvl:0,txt:`Due ${when}`};
+  const diff=day-new Date().getDate();
+  if(diff<0) return {lvl:3,txt:`Overdue, was due ${when}`};
+  if(diff===0) return {lvl:2,txt:'Due today'};
+  if(diff<=3) return {lvl:1,txt:`Due in ${diff} day${diff===1?'':'s'}`};
+  return {lvl:0,txt:`Due ${when}`};
+}
+const DUE_CLS=['','text-amber-700 dark:text-amber-300 font-semibold','text-amber-700 dark:text-amber-300 font-semibold','text-red-700 dark:text-red-300 font-semibold'];
 function row(list,x,sub=''){
+  const di=dueInfo(x); if(di) sub=`<span class="${DUE_CLS[di.lvl]}">${di.txt}</span>${sub?', '+sub:''}`;
   const doneTxt=x.done?'text-teal-900/35 dark:text-teal-100/60':'';
   return `<div class="flex min-h-14 items-center gap-3 border-b border-line px-4 py-1.5 last:border-b-0 dark:border-teal-800/60">
     <button class="group -my-1 -mr-1.5 -ml-2.5 grid size-12 flex-none place-items-center rounded-xl" role="checkbox" aria-checked="${!!x.done}" data-act="tog" data-list="${list}" data-id="${esc(x.id)}" aria-label="${esc(x.label)} ${x.done?'done':'not done'}">
@@ -345,12 +400,21 @@ function row(list,x,sub=''){
 function renderMore(){
   const th=store.get(THEME)||'system', lb=+store.get(BKP)||0;
   const setrow=(t,s,btn)=>`<div class="flex min-h-14 items-center gap-3 border-b border-line px-4 py-2.5 last:border-b-0 dark:border-teal-800/60"><div class="flex-1">${t}<span class="block text-[12.5px] ${MUTE}">${s}</span></div>${btn}</div>`;
-  return pageHead('More','Accounts, appearance and backup')+`<div class="${GRID2}"><div>
+  const al=store.get(AUTOLOCK)||'60';
+  const sec=`<section class="card"><div class="card-h"><h3 class="card-t">Security</h3>${encMeta?'<span class="tag tag-ok">Encrypted</span>':''}</div>
+    ${encMeta?setrow('PIN lock','On. Your data is encrypted on this phone',`<div class="flex gap-1.5"><button class="btn px-4" data-act="pinchange">Change</button><button class="btn btn-danger px-4" data-act="pinoff">Turn off</button></div>`)
+      :setrow('PIN lock','Off. Anyone using your phone can open Tally','<button class="btn btn-pri" data-act="pinset">Set PIN</button>')}
+    ${encMeta?`<div class="border-b border-line px-4 py-3 dark:border-teal-800/60"><div class="mb-2">Auto-lock<span class="block text-[12.5px] ${MUTE}">After leaving the app, or when idle</span></div>
+      <div class="grid grid-cols-4 gap-1 rounded-xl bg-mist p-1 dark:bg-teal-950" role="group" aria-label="Auto-lock">${[['0','Instantly'],['60','1 min'],['300','5 min'],['900','15 min']].map(([v,l])=>`<button data-act="autolock" data-v="${v}" aria-pressed="${al===v}" class="min-h-10 rounded-lg text-sm font-semibold ${MUTE} aria-pressed:bg-white aria-pressed:text-teal-950 aria-pressed:shadow-sm dark:aria-pressed:bg-teal-700 dark:aria-pressed:text-white">${l}</button>`).join('')}</div></div>`:''}
+    ${setrow('Hide amounts','Show •••• instead of numbers. Also the eye button at the top',`<button role="switch" aria-checked="${PRIV}" aria-label="Hide amounts" data-act="hide" class="relative h-8 w-14 flex-none rounded-full bg-teal-900/15 transition-colors aria-checked:bg-teal-700 dark:bg-teal-700/60 dark:aria-checked:bg-reef"><span class="absolute top-1 left-1 size-6 rounded-full bg-white shadow transition-transform ${PRIV?'translate-x-6':''}"></span></button>`)}
+    ${encMeta?setrow('Lock now','Close Tally behind your PIN','<button class="btn" data-act="locknow">Lock</button>'):''}
+  </section>`;
+  return pageHead('More','Security, appearance and backup')+`<div class="${GRID2}"><div>${sec}
   <section class="card"><div class="card-h"><h3 class="card-t">Appearance</h3></div>
     <div class="mx-4 mt-3 grid grid-cols-3 gap-1 rounded-xl bg-mist p-1 dark:bg-teal-950" role="group" aria-label="Theme">${['system','light','dark'].map(t=>`<button data-act="theme" data-v="${t}" aria-pressed="${th===t}" class="min-h-10 rounded-lg text-sm font-semibold ${MUTE} aria-pressed:bg-white aria-pressed:text-teal-950 aria-pressed:shadow-sm dark:aria-pressed:bg-teal-700 dark:aria-pressed:text-white">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>
     <p class="mx-4 mt-2 mb-3 text-[13px] ${MUTE}">“System” follows your phone's light/dark setting.</p></section>
   <section class="card"><div class="card-h"><h3 class="card-t">Backup</h3><span class="meta">${lb?'Last: '+new Date(lb).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'Never backed up'}</span></div>
-    ${setrow('Save backup file','Keep it in Files, Drive or send to yourself','<button class="btn" data-act="export">Save</button>')}
+    ${setrow('Save backup file','Protected with a password you choose','<button class="btn" data-act="export">Save</button>')}
     ${setrow('Restore from backup','Replaces everything on this phone','<button class="btn" data-act="import">Restore</button>')}
   </section></div><div>
   <section class="card"><div class="card-h"><h3 class="card-t">Saving accounts</h3></div>
@@ -371,7 +435,7 @@ function toast(msg,undo){
 }
 function hideToast(){ const t=$('toast'); t.classList.add('hidden'); t.classList.remove('flex'); undoFn=null; }
 $('tbtn').onclick=()=>{ const f=undoFn; hideToast(); if(f) f(); };
-function snapshot(){ const before=JSON.stringify(S); return ()=>{ S=JSON.parse(before); save(); render(); toast('Undone'); }; }
+function snapshot(){ const before=JSON.stringify(S); return ()=>{ if(LOCKED) return; S=JSON.parse(before); save(); render(); toast('Undone'); }; }
 
 /* ================= Confirm ================= */
 function confirmSheet(title,msg,yes){
@@ -398,6 +462,9 @@ function openDlg(c){
   $('fme').classList.toggle('hidden',L!=='gave'||isSpend); $('ime').checked=!!x.me;
   $('fbank').classList.toggle('hidden',!isAcct); $('facct').classList.toggle('hidden',!isAcct);
   $('icur').classList.toggle('hidden',!isSav);
+  $('fdue').classList.toggle('hidden',!DUE_LISTS.includes(L)||isSpend);
+  $('ldue').textContent=L==='income'?'Expected on day (optional)':L==='savings'?'Transfer by day (optional)':'Due day of month (optional)';
+  $('idue').value=x.due||''; $('edue').textContent=''; $('idue').removeAttribute('aria-invalid');
   $('llabel').textContent=isSav?'Bank / account name':isAcct?'Account name':L==='gave'?'Person':L==='income'?'Source':isBud?'Category':'Name';
   $('ilabel').placeholder=isSav?'e.g. MIB':isAcct?'e.g. Thol Saving':L==='gave'?'e.g. Najey':L==='income'?'e.g. Salary':isBud?'e.g. Groceries':'e.g. Phone bill';
   const whos=M()?[...new Set(M().savings.map(s=>s.who))]:[];
@@ -432,7 +499,9 @@ $('dform').onsubmit=e=>{
   let ok=true;
   if(!label){$('elabel').textContent='Please enter a name.';$('ilabel').setAttribute('aria-invalid','true');ok=false}else{$('elabel').textContent='';$('ilabel').removeAttribute('aria-invalid')}
   if(!isAcct&&(rawAmt===''||!isFinite(amt)||amt<0||amt>=1e12)){$('eamt').textContent='Enter an amount, e.g. 1500 or 2101.89';$('iamt').setAttribute('aria-invalid','true');ok=false}else{$('eamt').textContent='';$('iamt').removeAttribute('aria-invalid')}
-  if(!ok){(label?$('iamt'):$('ilabel')).focus();return}
+  const rawDue=$('idue').value.trim(), due=Number(rawDue);
+  if(DUE_LISTS.includes(ctx.list)&&rawDue&&!(Number.isInteger(due)&&due>=1&&due<=31)){$('edue').textContent='Enter a day from 1 to 31, or leave empty';$('idue').setAttribute('aria-invalid','true');ok=false}
+  if(!ok){(label?($('idue').getAttribute('aria-invalid')?$('idue'):$('iamt')):$('ilabel')).focus();return}
   const undo=snapshot();
   if(isAcct){
     const x=ctx.item||{id:uid()}; x.label=label; x.bank=str($('ibank').value,30); x.acct=$('iacct').value.replace(/\D/g,'').slice(-4);
@@ -446,6 +515,7 @@ $('dform').onsubmit=e=>{
     if(ctx.list==='budget'&&!ctx.item&&M().budget.some(b=>b.label===label)){$('elabel').textContent='You already have a category with this name.';$('ilabel').setAttribute('aria-invalid','true');$('ilabel').focus();return}
     x.label=label; x.amt=Math.round(amt*100)/100;
     if(ctx.list==='gave'){ if($('ime').checked) x.me=true; else delete x.me; }
+    if(DUE_LISTS.includes(ctx.list)){ if(rawDue) x.due=due; else delete x.due; }
     if(ctx.list==='savings'){x.who=str($('iwho').value)||'Other';x.cur=$('icur').value}
     if(!ctx.item) M()[ctx.list].push(x);
   }
@@ -502,9 +572,16 @@ $('eform').onsubmit=ev=>{
 };
 
 /* ================= Backup ================= */
-function exportData(){
+function exportData(){ openPw('export'); }
+async function writeBackup(password){
   const name=`tally-backup-${new Date().toISOString().slice(0,10)}.json`;
-  const blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});
+  let body;
+  if(password){
+    const salt=crypto.getRandomValues(new Uint8Array(16)), key=await deriveKey(password,salt,ITER);
+    const {iv,ct}=await encryptText(key,JSON.stringify(S));
+    body=JSON.stringify({tally:'backup',v:2,enc:{alg:'AES-GCM',kdf:'PBKDF2-SHA256',iter:ITER,salt:b64(salt),iv,ct}});
+  } else body=JSON.stringify(S,null,1);
+  const blob=new Blob([body],{type:'application/json'});
   const done=()=>{store.set(BKP,String(Date.now()));render();toast('Backup saved')};
   let file=null; try{file=new File([blob],name,{type:'application/json'})}catch(_){}
   if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
@@ -519,16 +596,163 @@ $('ifile').onchange=()=>{
   if(f.size>2*1024*1024){toast('File too large to be a Tally backup');return}
   const r=new FileReader();
   r.onload=async()=>{
-    let d; try{d=JSON.parse(r.result); if(!d||typeof d.months!=='object') throw 0; d=cleanData(d);}catch(_){toast('That file isn\'t a Tally backup');return}
+    let d; try{d=JSON.parse(r.result);}catch(_){toast('That file isn\'t a Tally backup');return}
+    if(d&&d.enc&&typeof d.enc.ct==='string'){ pendingEnc=d.enc; openPw('import'); return; }
+    restoreData(d);
+  };
+  r.readAsText(f);
+};
+let pendingEnc=null;
+async function restoreData(d){
+    try{ if(!d||typeof d.months!=='object') throw 0; d=cleanData(d);}catch(_){toast('That file isn\'t a Tally backup');return}
     const n=Object.keys(d.months).length;
     if(!n&&!d.accounts.length){toast('No usable data found in that file');return}
     if(Object.keys(S.months).length && !await confirmSheet('Replace data on this phone?',`The backup has ${n} month${n===1?'':'s'}. Everything currently in the app will be replaced. You can undo right after.`,'Replace')) return;
     const undo=snapshot(); S=d;
     cur=S.months[thisMonth]?thisMonth:(Object.keys(S.months).sort().pop()||thisMonth);
     save(); tab='home'; render(); toast(`Restored ${n} month${n===1?'':'s'}`,undo);
-  };
-  r.readAsText(f);
+}
+
+/* ================= Password sheet (backups) ================= */
+let pwMode=null;
+function openPw(mode){
+  pwMode=mode;
+  $('pwtitle').textContent=mode==='export'?'Protect your backup':'Enter backup password';
+  $('pwhint').textContent=mode==='export'?'Anyone with the file needs this password to read it. There is no way to recover it, so keep it safe.':'This backup is password-protected.';
+  $('pw2wrap').classList.toggle('hidden',mode!=='export'); $('pwplain').classList.toggle('hidden',mode!=='export');
+  $('pwgo').textContent=mode==='export'?'Save protected backup':'Restore';
+  $('pw1').value=''; $('pw2').value=''; $('pwerr').textContent=''; $('pw1').setAttribute('autocomplete',mode==='export'?'new-password':'current-password');
+  $('pwdlg').showModal(); setTimeout(()=>$('pw1').focus(),60);
+}
+$('pwcancel').onclick=()=>{$('pwdlg').close();pendingEnc=null};
+$('pwdlg').addEventListener('click',e=>{if(e.target===$('pwdlg')){$('pwdlg').close();pendingEnc=null}});
+$('pwplain').onclick=async()=>{
+  if(!await confirmSheet('Save without a password?','Anyone who gets this file can read all your amounts and names.','Save anyway')) return;
+  $('pwdlg').close(); writeBackup(null);
 };
+$('pwform').onsubmit=async e=>{
+  e.preventDefault(); const p1=$('pw1').value, p2=$('pw2').value;
+  if(pwMode==='export'){
+    if(p1.length<6){$('pwerr').textContent='Use at least 6 characters.';return}
+    if(p1!==p2){$('pwerr').textContent='The two passwords don’t match.';return}
+    $('pwgo').disabled=true; $('pwgo').textContent='Encrypting…';
+    try{ await writeBackup(p1); $('pwdlg').close(); } finally{ $('pwgo').disabled=false; }
+  } else {
+    if(!p1){$('pwerr').textContent='Enter the password.';return}
+    $('pwgo').disabled=true; $('pwgo').textContent='Checking…';
+    try{
+      const enc=pendingEnc, key=await deriveKey(p1,unb64(enc.salt),Math.min(Math.max(+enc.iter||ITER,100000),2000000));
+      const d=JSON.parse(await decryptText(key,enc.iv,enc.ct));
+      $('pwdlg').close(); pendingEnc=null; restoreData(d);
+    }catch(_){ $('pwerr').textContent='Wrong password, or the file is damaged.'; }
+    finally{ $('pwgo').disabled=false; $('pwgo').textContent='Restore'; }
+  }
+};
+
+/* ================= PIN lock ================= */
+let pinMode='unlock', pinBuf='', pinFirst='', pinBusy=false, pinNext=null;
+const LOCK_TXT={unlock:['Enter your PIN',''],set1:['Choose a PIN','4 to 6 digits. You’ll need it every time you open Tally.'],set2:['Enter the PIN again','To make sure it’s right.'],verify:['Enter your current PIN','']};
+function showLock(mode,next){
+  pinMode=mode; pinNext=next||null; pinBuf=''; pinFirst=mode==='set2'?pinFirst:'';
+  $('lock').classList.remove('hidden'); $('lock').classList.add('flex'); document.body.classList.add('overflow-hidden');
+  $('ltitle').textContent=LOCK_TXT[mode][0]; $('lsub').textContent=LOCK_TXT[mode][1]; $('lerr').textContent='';
+  $('lcancel').classList.toggle('hidden',mode==='unlock'); $('lforgot').classList.toggle('hidden',mode!=='unlock');
+  $('lgo').classList.toggle('hidden',mode!=='set1');
+  drawDots(); checkThrottle();
+}
+function hideLock(){ $('lock').classList.add('hidden'); $('lock').classList.remove('flex'); document.body.classList.remove('overflow-hidden'); }
+function pinLen(){ return pinMode==='set1'?6:pinMode==='set2'?pinFirst.length:(encMeta&&encMeta.len)||6; }
+function drawDots(){
+  const n=pinMode==='set1'?Math.max(4,pinBuf.length):pinLen();
+  $('ldots').innerHTML=Array.from({length:n},(_,i)=>`<span class="size-3.5 rounded-full border-2 border-white/60 ${i<pinBuf.length?'bg-white border-white':''}"></span>`).join('');
+  $('lgo').disabled=pinBuf.length<4;
+}
+function fails(){try{return JSON.parse(store.get(FAILS)||'{"n":0,"until":0}')}catch(_){return {n:0,until:0}}}
+let throttleTimer=null;
+function checkThrottle(){
+  clearInterval(throttleTimer); const f=fails();
+  const tick=()=>{const s=Math.ceil((f.until-Date.now())/1000);
+    if(s>0){ $('lerr').textContent=`Too many wrong tries. Try again in ${Math.floor(s/60)}:${pad(s%60)}`; $('lkeys').classList.add('pointer-events-none','opacity-40'); }
+    else { clearInterval(throttleTimer); if($('lerr').textContent.startsWith('Too many')) $('lerr').textContent=''; $('lkeys').classList.remove('pointer-events-none','opacity-40'); }};
+  if(f.until>Date.now()){ tick(); throttleTimer=setInterval(tick,1000); } else tick();
+}
+function shake(msg){ $('lerr').textContent=msg; pinBuf=''; drawDots(); const d=$('ldots'); d.classList.remove('animate-[shake_.35s]'); void d.offsetWidth; d.classList.add('animate-[shake_.35s]'); try{navigator.vibrate?.([30,40,30])}catch(_){} }
+async function checkPin(pin){ // returns decrypted text or null
+  const key=await deriveKey(pin,unb64(encMeta.salt),encMeta.iter||ITER);
+  try{ return {key,text:await decryptText(key,encMeta.iv,encMeta.ct)}; }catch(_){ return null; }
+}
+async function pinEntered(){
+  if(pinBusy) return;
+  if(pinMode==='set1'){ if(pinBuf.length<4) return; pinFirst=pinBuf; showLock('set2',pinNext); return; }
+  if(pinMode==='set2'){
+    if(pinBuf!==pinFirst){ pinFirst=''; showLock('set1',pinNext); $('lerr').textContent='Those PINs didn’t match. Choose a PIN again.'; return; }
+    pinBusy=true; $('lsub').textContent='Encrypting your data…';
+    try{ await enablePin(pinBuf); hideLock(); render(); toast('PIN set. Your data is now encrypted'); } catch(_){ shake('Could not set the PIN'); }
+    pinBusy=false; return;
+  }
+  // unlock / verify
+  if(fails().until>Date.now()) return;
+  pinBusy=true; $('lsub').textContent='Checking…';
+  const res=await checkPin(pinBuf); pinBusy=false; $('lsub').textContent=LOCK_TXT[pinMode][1];
+  if(!res){ const f=fails(); f.n++; if(f.n>=5) f.until=Date.now()+Math.min(30000*Math.pow(2,f.n-5),15*60000); store.set(FAILS,JSON.stringify(f));
+    shake(f.n>=5?'':`Wrong PIN. ${Math.max(0,5-f.n)} ${5-f.n===1?'try':'tries'} left before a short wait`); checkThrottle(); return; }
+  store.set(FAILS,'{"n":0,"until":0}');
+  if(pinMode==='unlock'){
+    try{ S=cleanData(JSON.parse(res.text)); }catch(_){ S={months:{},accounts:[]}; }
+    cryptoKey=res.key; LOCKED=false; lastActive=Date.now();
+    cur=S.months[thisMonth]?thisMonth:(Object.keys(S.months).sort().pop()||thisMonth);
+    hideLock(); heroPlayed=false; render();
+  } else { hideLock(); const n=pinNext; pinNext=null; n&&n(); }
+}
+async function enablePin(pin){
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const key=await deriveKey(pin,salt,ITER);
+  const meta={v:1,salt:b64(salt),iter:ITER,len:pin.length};
+  const {iv,ct}=await encryptText(key,JSON.stringify(S));
+  if(!store.set(ENC_KEY,JSON.stringify({...meta,iv,ct}))) throw new Error('storage');
+  cryptoKey=key; encMeta=meta; wipePlainCopies(); store.set(FAILS,'{"n":0,"until":0}');
+}
+async function disablePin(){
+  await saveChain; if(!store.set(KEY,JSON.stringify(S))){toast('Could not save — storage blocked');return}
+  try{localStorage.removeItem(ENC_KEY)}catch(_){}
+  cryptoKey=null; encMeta=null; render(); toast('PIN turned off. Data is no longer encrypted');
+}
+async function lockNow(){
+  if(!encMeta||LOCKED) return;
+  await saveChain; encMeta=readEnc()||encMeta;
+  document.querySelectorAll('dialog[open]').forEach(d=>d.close());
+  S={months:{},accounts:[]}; cryptoKey=null; LOCKED=true; hideToast(); render(); showLock('unlock');
+}
+$('lkeys').addEventListener('click',e=>{
+  const b=e.target.closest('[data-k]'); if(!b||pinBusy) return; const k=b.dataset.k;
+  if(k==='del'){ pinBuf=pinBuf.slice(0,-1); drawDots(); return; }
+  if(pinBuf.length>=(pinMode==='set1'?6:pinLen())) return;
+  pinBuf+=k; drawDots(); if(pinMode!=='set1'&&pinBuf.length===pinLen()) setTimeout(pinEntered,90);
+});
+$('lgo').onclick=()=>pinEntered();
+$('lcancel').onclick=()=>{ pinNext=null; hideLock(); };
+$('lforgot').onclick=async()=>{
+  if(!await confirmSheet('Erase data and start over?','Without your PIN the data on this phone can’t be opened. Erase it, then restore a backup (you’ll need that backup’s password).','Erase')) return;
+  try{localStorage.removeItem(ENC_KEY)}catch(_){} store.set(FAILS,'{"n":0,"until":0}');
+  encMeta=null; cryptoKey=null; LOCKED=false; S={months:{},accounts:[]}; hideLock(); tab='more'; render(); toast('Erased. Restore a backup or start fresh');
+};
+document.addEventListener('keydown',e=>{
+  if($('lock').classList.contains('hidden')||document.querySelector('dialog[open]')) return;
+  if(/^\d$/.test(e.key)){ $('lkeys').querySelector(`[data-k="${e.key}"]`)?.click(); e.preventDefault(); }
+  else if(e.key==='Backspace'){ $('lkeys').querySelector('[data-k="del"]').click(); e.preventDefault(); }
+  else if(e.key==='Enter'&&pinMode==='set1'){ pinEntered(); }
+  else if(e.key==='Escape'&&pinMode!=='unlock'){ $('lcancel').click(); }
+},true);
+
+/* Auto-lock: after leaving the app, or when idle */
+let hiddenAt=0, lastActive=Date.now();
+const lockAfter=()=>Number(store.get(AUTOLOCK)||'60');
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ hiddenAt=Date.now(); if(encMeta&&!LOCKED){ $('cover').classList.remove('hidden'); $('cover').classList.add('grid'); if(lockAfter()===0) lockNow(); } }
+  else { if(encMeta&&!LOCKED&&Date.now()-hiddenAt>=lockAfter()*1000) lockNow(); $('cover').classList.add('hidden'); $('cover').classList.remove('grid'); lastActive=Date.now(); }
+});
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{lastActive=Date.now()},{passive:true,capture:true}));
+setInterval(()=>{ if(encMeta&&!LOCKED&&Date.now()-lastActive>Math.max(lockAfter(),300)*1000) lockNow(); },15000);
 
 /* ================= Theme ================= */
 const mq=matchMedia('(prefers-color-scheme: dark)');
@@ -559,6 +783,12 @@ document.addEventListener('click',async e=>{
   if(a==='export') exportData();
   if(a==='import') $('ifile').click();
   if(a==='theme'){store.set(THEME,t.dataset.v);resolveTheme();render()}
+  if(a==='pinset') showLock('set1');
+  if(a==='pinchange') showLock('verify',()=>showLock('set1'));
+  if(a==='pinoff') showLock('verify',async()=>{ if(await confirmSheet('Turn off PIN lock?','Your data will be stored without encryption, and anyone using your phone can open Tally.','Turn off')) disablePin(); });
+  if(a==='locknow') lockNow();
+  if(a==='autolock'){ store.set(AUTOLOCK,t.dataset.v); render(); }
+  if(a==='hide') togglePriv();
   if(a==='newmonth'){
     const prev=Object.keys(S.months).filter(k=>k<cur).sort().pop();
     ensureMonth(cur);
@@ -573,6 +803,8 @@ function go(t){tab=t; try{history.replaceState(null,'','#'+t)}catch(_){} render(
 document.querySelectorAll('#nav [data-tab]').forEach(b=>b.onclick=()=>go(b.dataset.tab));
 $('fab').onclick=()=>openExp({});
 $('gear').onclick=()=>go('more');
+function togglePriv(){ PRIV=!PRIV; store.set(HIDE,PRIV?'1':'0'); render(); toast(PRIV?'Amounts hidden':'Amounts shown'); }
+$('eye').onclick=togglePriv;
 $('prev').onclick=()=>{cur=shift(cur,-1);render()};
 $('next').onclick=()=>{cur=shift(cur,1);render()};
 $('mtitle').onclick=()=>{cur=thisMonth;render()};
@@ -585,5 +817,6 @@ $('app').addEventListener('touchend',e=>{ if(sx===null)return; const dx=e.change
   if(Math.abs(dx)>80&&Math.abs(dy)<40){cur=shift(cur,dx<0?1:-1);render()} sx=null; },{passive:true});
 
 render();
+if(LOCKED) showLock('unlock');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 navigator.storage?.persist?.().catch(()=>{});
