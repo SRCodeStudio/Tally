@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="tally-version" content="13">
+<meta name="tally-version" content="16">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -47,10 +47,14 @@
 
   <div class="flex min-w-0 flex-1 flex-col">
     <header class="sticky top-0 z-10 bg-mist/85 px-3 pt-[calc(8px+env(safe-area-inset-top))] pb-2 backdrop-blur-md dark:bg-teal-950/85">
-      <div class="mx-auto flex max-w-5xl items-center gap-2">
-        <button id="prev" aria-label="Previous month" class="grid size-11 place-items-center rounded-full border border-line bg-white hover:bg-mist dark:border-teal-800 dark:bg-teal-900/60 dark:hover:bg-teal-900"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-        <button id="mtitle" aria-live="polite" class="min-h-12 flex-1 rounded-2xl px-2 text-center font-display text-[19px] font-semibold leading-tight tracking-tight">—</button>
-        <button id="next" aria-label="Next month" class="grid size-11 place-items-center rounded-full border border-line bg-white hover:bg-mist dark:border-teal-800 dark:bg-teal-900/60 dark:hover:bg-teal-900"><svg class="icon" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+      <div class="mx-auto flex min-h-12 max-w-5xl items-center gap-2">
+        <div class="flex items-center rounded-full border border-line bg-white p-1 shadow-[0_1px_2px_rgba(6,48,43,.06)] dark:border-teal-800/70 dark:bg-teal-900/50 dark:shadow-none">
+          <button id="prev" aria-label="Previous month" class="grid size-9 place-items-center rounded-full text-teal-900/70 hover:bg-mist dark:text-teal-100/80 dark:hover:bg-teal-800"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <button id="mtitle" aria-live="polite" title="Go to this month" class="min-h-9 min-w-[150px] rounded-full px-2 text-center font-display text-[16.5px] font-semibold tracking-tight">—</button>
+          <button id="next" aria-label="Next month" class="grid size-9 place-items-center rounded-full text-teal-900/70 hover:bg-mist dark:text-teal-100/80 dark:hover:bg-teal-800"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+        </div>
+        <button id="today" class="hidden min-h-9 rounded-full bg-teal-100 px-3 text-[13px] font-semibold text-teal-900 hover:bg-teal-200 dark:bg-teal-800 dark:text-reef">Today</button>
+        <span class="flex-1"></span>
         <button id="eye" aria-pressed="false" aria-label="Hide amounts" class="group grid size-11 place-items-center rounded-full text-teal-900/55 hover:bg-mist aria-pressed:bg-teal-100 aria-pressed:text-teal-900 dark:text-teal-200/80 dark:hover:bg-teal-900 dark:aria-pressed:bg-teal-800 dark:aria-pressed:text-reef">
           <svg class="icon group-aria-pressed:hidden" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
           <svg class="icon hidden group-aria-pressed:block" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/></svg></button>
@@ -74,6 +78,11 @@
       <div class="flex gap-2"><input id="iamt" class="input flex-1" type="text" inputmode="decimal" autocomplete="off" placeholder="0" enterkeyhint="done">
       <select id="icur" aria-label="Currency" class="input w-24 flex-none"><option>MVR</option><option>USD</option></select></div>
       <div class="err" id="eamt"></div></div>
+    <div id="fadd" class="mt-3"><label for="iadd" class="label">Add each month</label>
+      <input id="iadd" class="input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1000 (leave empty if none)"><div class="err" id="eadd"></div></div>
+    <label id="fext" class="mt-3 flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-line px-3 py-2 dark:border-teal-700">
+      <input id="iext" type="checkbox" class="size-5 flex-none accent-teal-700 dark:accent-emerald-400">
+      <span class="text-[15px]">Not from my income<span class="block text-[12.5px] text-teal-900/55 dark:text-teal-200/70">Someone else pays this deposit, so Budget won’t deduct it</span></span></label>
     <div id="fdue" class="mt-3"><label for="idue" id="ldue" class="label">Due day of month (optional)</label>
       <input id="idue" class="input" type="text" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="e.g. 5"><div class="err" id="edue"></div></div>
     <label id="fme" class="mt-3 flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-line px-3 py-2 dark:border-teal-700">

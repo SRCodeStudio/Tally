@@ -31,7 +31,7 @@
 }
 
 @layer components {
-  .card      { @apply mb-4 overflow-hidden rounded-[22px] border border-line bg-white dark:border-teal-800/50 dark:bg-teal-900/35; }
+  .card      { @apply mb-4 overflow-hidden rounded-[22px] border border-line bg-white shadow-[0_1px_2px_rgba(6,48,43,.04)] dark:border-teal-800/50 dark:bg-teal-900/35 dark:shadow-[inset_0_1px_0_rgba(255,255,255,.04)]; }
   .card-h    { @apply flex items-center justify-between gap-2 px-4 pt-3.5 pb-2.5; }
   .card-t    { @apply font-display text-[17px] font-semibold tracking-tight; }
   .meta      { @apply text-[13px] text-teal-900/55 dark:text-teal-200/65; }
