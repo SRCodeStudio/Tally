@@ -3,5 +3,5 @@
     var pref='system'; try{pref=localStorage.getItem('family-budget-theme')||'system'}catch(_){}
     var dark=pref==='dark'||(pref==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme=dark?'dark':'light';
-    document.querySelector('meta[name=theme-color]').content=dark?'#042f2e':'#fafaf9';
+    document.querySelector('meta[name=theme-color]').content=dark?'#042f2e':'#eef4f2';
   })();

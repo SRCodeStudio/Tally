@@ -5,32 +5,64 @@
 /* Dark mode follows data-theme on <html> (set from System / Light / Dark) */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
+/* Bundled fonts (work offline) */
+@font-face { font-family: "Bricolage"; src: url("fonts/bricolage.woff2") format("woff2-variations"); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: "Figtree";   src: url("fonts/figtree.woff2") format("woff2-variations");   font-weight: 300 900; font-display: swap; }
+
+@theme {
+  --font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Bricolage", "Figtree", system-ui, sans-serif;
+  --color-mist: #eef4f2;       /* light background: sea mist */
+  --color-line: #dbe6e2;       /* light hairlines */
+  --color-lagoon: #06302b;     /* hero card, deep lagoon */
+  --color-lagoon-2: #0b4a42;
+  --color-reef: #34d3b0;       /* mint accent on dark */
+  --color-sun: #f5b83d;        /* warnings only */
+  --ease-out-soft: cubic-bezier(.22,1,.36,1);
+}
+
 @layer base {
   html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
-  body { @apply bg-stone-50 text-stone-900 antialiased dark:bg-teal-950 dark:text-teal-50; }
+  body { @apply bg-mist font-sans text-[15.5px] text-teal-950 antialiased dark:bg-teal-950 dark:text-teal-50; font-feature-settings: "ss01"; }
+  h1,h2,h3,.display { font-family: var(--font-display); font-optical-sizing: auto; }
   :focus-visible { @apply outline-3 outline-offset-2 outline-teal-500 rounded-lg; }
   button { @apply cursor-pointer; }
-  dialog::backdrop { @apply bg-black/50; }
+  dialog::backdrop { @apply bg-teal-950/55 backdrop-blur-[2px]; }
 }
 
 @layer components {
-  .card      { @apply mb-4 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-teal-800/60 dark:bg-teal-900/40 dark:shadow-none; }
-  .card-h    { @apply flex items-center justify-between gap-2 border-b border-stone-200 px-4 py-3 dark:border-teal-800/60; }
-  .card-t    { @apply text-base font-bold; }
-  .meta      { @apply text-[13px] text-stone-500 dark:text-teal-200/70; }
-  .total     { @apply flex justify-between bg-stone-100 px-4 py-3 font-bold dark:bg-teal-900/70; }
-  .link-btn  { @apply min-h-10 rounded-lg px-1.5 text-sm font-semibold text-teal-700 hover:underline dark:text-teal-300; }
-  .add-btn   { @apply flex min-h-12 w-full items-center justify-center gap-1.5 border-t border-stone-200 text-[15px] font-semibold text-teal-700 hover:bg-teal-50 dark:border-teal-800/60 dark:text-teal-300 dark:hover:bg-teal-900; }
-  .btn       { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[15px] font-semibold hover:bg-stone-50 active:scale-[.98] dark:border-teal-700 dark:bg-teal-900 dark:hover:bg-teal-800; }
-  .btn-pri   { @apply border-teal-700 bg-teal-700 text-white hover:bg-teal-800 dark:border-emerald-400 dark:bg-emerald-400 dark:text-teal-950 dark:hover:bg-emerald-300; }
+  .card      { @apply mb-4 overflow-hidden rounded-[22px] border border-line bg-white dark:border-teal-800/50 dark:bg-teal-900/35; }
+  .card-h    { @apply flex items-center justify-between gap-2 px-4 pt-3.5 pb-2.5; }
+  .card-t    { @apply font-display text-[17px] font-semibold tracking-tight; }
+  .meta      { @apply text-[13px] text-teal-900/55 dark:text-teal-200/65; }
+  .total     { @apply mx-2 mb-2 flex justify-between rounded-2xl bg-mist px-3 py-2.5 font-semibold dark:bg-teal-950/60; }
+  .link-btn  { @apply min-h-10 rounded-full px-3 text-sm font-semibold text-teal-700 hover:bg-teal-50 dark:text-reef dark:hover:bg-teal-800/60; }
+  .add-btn   { @apply flex min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-[15px] font-semibold text-teal-700 hover:bg-mist dark:border-teal-800/50 dark:text-reef dark:hover:bg-teal-900; }
+  .btn       { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-line bg-white px-5 text-[15px] font-semibold transition-transform duration-150 hover:bg-mist active:scale-[.97] dark:border-teal-700 dark:bg-teal-900 dark:hover:bg-teal-800; }
+  .btn-pri   { @apply border-teal-800 bg-teal-800 text-white hover:bg-teal-900 dark:border-reef dark:bg-reef dark:text-teal-950 dark:hover:bg-emerald-300; }
   .btn-danger{ @apply text-red-700 dark:text-red-300; }
   .btn-danger-fill { @apply border-red-600 bg-red-600 text-white hover:bg-red-700 dark:border-red-400 dark:bg-red-400 dark:text-red-950; }
   .tag       { @apply inline-block rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums; }
-  .tag-ok    { @apply bg-teal-50 text-teal-800 dark:bg-teal-800/60 dark:text-teal-200; }
+  .tag-ok    { @apply bg-teal-100 text-teal-800 dark:bg-teal-800/60 dark:text-teal-200; }
   .tag-warn  { @apply bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300; }
-  .tag-bad   { @apply bg-red-50 text-red-700 dark:bg-red-400/15 dark:text-red-300; }
-  .input     { @apply min-h-12 w-full rounded-xl border-[1.5px] border-stone-200 bg-stone-50 px-3 text-base outline-none focus:border-teal-600 aria-invalid:border-red-600 dark:border-teal-700 dark:bg-teal-950 dark:focus:border-emerald-400 dark:aria-invalid:border-red-400; }
-  .label     { @apply mb-1.5 block text-[13px] font-semibold text-stone-500 dark:text-teal-200/70; }
+  .tag-bad   { @apply bg-red-100 text-red-700 dark:bg-red-400/15 dark:text-red-300; }
+  .input     { @apply min-h-12 w-full rounded-2xl border-[1.5px] border-line bg-mist px-3.5 text-base outline-none focus:border-teal-600 focus:bg-white aria-invalid:border-red-600 dark:border-teal-700 dark:bg-teal-950 dark:focus:border-reef dark:aria-invalid:border-red-400; }
+  .label     { @apply mb-1.5 block text-[13px] font-semibold text-teal-900/60 dark:text-teal-200/70; }
   .err       { @apply mt-1 text-[13px] text-red-700 empty:hidden dark:text-red-300; }
   .icon      { @apply size-[22px] shrink-0 fill-none stroke-current stroke-2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Signature: tally-mark progress */
+  .tally     { @apply flex flex-wrap gap-x-2.5 gap-y-2 md:gap-x-3.5; }
+  .tally svg { @apply h-6 w-[29px] overflow-visible md:h-7 md:w-[34px]; }
+  .tally line{ stroke-width: 3.2; stroke-linecap: round; }
+  .tally .on { stroke: var(--color-reef); }
+  .tally .off{ stroke: rgb(255 255 255 / .18); }
+}
+
+/* One orchestrated moment: tally marks draw in on Home */
+@keyframes draw { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
+@keyframes up { from { transform: translateY(24px); opacity: .4 } to { transform: none; opacity: 1 } }
+.tally.animate line { stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw .45s var(--ease-out-soft) forwards; }
+@media (prefers-reduced-motion: reduce) {
+  *, .tally.animate line { animation: none !important; transition: none !important; stroke-dashoffset: 0 !important; }
 }
