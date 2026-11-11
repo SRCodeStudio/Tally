@@ -1,0 +1,29 @@
+{
+  "name": "Tally — Budget Tracker",
+  "short_name": "Tally",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fafaf9",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "description": "Track monthly savings, bills and shared expenses. Tick when paid."
+}

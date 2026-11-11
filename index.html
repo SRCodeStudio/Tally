@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tally — Budget Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#fafaf9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tally">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<script src="theme.js"></script>
+<link rel="stylesheet" href="tailwind.css">
+</head>
+<body class="min-h-screen">
+<div class="flex min-h-screen flex-col md:flex-row">
+
+  <!-- Navigation: bottom bar on phone, sidebar on tablet/desktop -->
+  <nav aria-label="Sections" id="nav"
+       class="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-stone-200 bg-white px-1 pt-1 pb-[calc(4px+env(safe-area-inset-bottom))]
+              dark:border-teal-800/60 dark:bg-teal-950
+              md:sticky md:top-0 md:flex md:h-screen md:w-56 md:shrink-0 md:flex-col md:gap-1 md:border-t-0 md:border-r md:px-3 md:py-5 dark:md:bg-teal-900/30">
+    <div class="hidden items-center gap-2.5 px-3 pb-5 text-[17px] font-extrabold md:flex">
+      <img src="icon-192.png" alt="" class="size-7 rounded-lg">Tally
+    </div>
+    <button data-tab="home" class="nav-b group flex min-h-14 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1.5 text-xs font-semibold text-stone-500 aria-[current=page]:text-teal-800 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:gap-3 md:px-3 md:text-[15px] md:aria-[current=page]:bg-teal-50 dark:md:aria-[current=page]:bg-teal-800/60">
+      <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-50 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span>Home</button>
+    <button data-tab="budget" class="nav-b group flex min-h-14 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1.5 text-xs font-semibold text-stone-500 aria-[current=page]:text-teal-800 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:gap-3 md:px-3 md:text-[15px] md:aria-[current=page]:bg-teal-50 dark:md:aria-[current=page]:bg-teal-800/60">
+      <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-50 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg></span>Budget</button>
+    <button data-tab="savings" class="nav-b group flex min-h-14 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1.5 text-xs font-semibold text-stone-500 aria-[current=page]:text-teal-800 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:gap-3 md:px-3 md:text-[15px] md:aria-[current=page]:bg-teal-50 dark:md:aria-[current=page]:bg-teal-800/60">
+      <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-50 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><path d="M19 7h-1V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M3 7h15"/><circle cx="16" cy="14" r="1.2"/></svg></span>Savings</button>
+    <button data-tab="bills" class="nav-b group flex min-h-14 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1.5 text-xs font-semibold text-stone-500 aria-[current=page]:text-teal-800 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:gap-3 md:px-3 md:text-[15px] md:aria-[current=page]:bg-teal-50 dark:md:aria-[current=page]:bg-teal-800/60">
+      <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-50 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg></span>Bills</button>
+    <button data-tab="more" class="nav-b group flex min-h-14 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1.5 text-xs font-semibold text-stone-500 aria-[current=page]:text-teal-800 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:gap-3 md:px-3 md:text-[15px] md:aria-[current=page]:bg-teal-50 dark:md:aria-[current=page]:bg-teal-800/60">
+      <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-50 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></span>More</button>
+  </nav>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="sticky top-0 z-10 border-b border-stone-200 bg-stone-50/90 px-3 pt-[calc(8px+env(safe-area-inset-top))] pb-2 backdrop-blur-md dark:border-teal-800/60 dark:bg-teal-950/90">
+      <div class="mx-auto flex max-w-5xl items-center gap-2">
+        <button id="prev" aria-label="Previous month" class="grid size-12 place-items-center rounded-xl border border-stone-200 bg-white hover:bg-stone-100 dark:border-teal-800 dark:bg-teal-900/60 dark:hover:bg-teal-900"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button id="mtitle" aria-live="polite" class="min-h-12 flex-1 rounded-xl px-2 text-center text-lg font-bold leading-tight">—</button>
+        <button id="next" aria-label="Next month" class="grid size-12 place-items-center rounded-xl border border-stone-200 bg-white hover:bg-stone-100 dark:border-teal-800 dark:bg-teal-900/60 dark:hover:bg-teal-900"><svg class="icon" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+      </div>
+    </header>
+    <main id="app" tabindex="-1" class="mx-auto w-full max-w-5xl flex-1 px-3.5 pt-3.5 pb-[calc(96px+env(safe-area-inset-bottom))] outline-none md:px-6 md:pt-5 md:pb-10"></main>
+  </div>
+</div>
+
+<!-- Edit / add sheet -->
+<dialog id="dlg" aria-labelledby="dtitle"
+  class="m-0 mt-auto w-full max-w-full rounded-t-3xl bg-white p-0 pb-[env(safe-area-inset-bottom)] text-stone-900 open:animate-[up_.2s_ease-out] dark:bg-teal-900 dark:text-teal-50 sm:m-auto sm:w-[440px] sm:rounded-3xl sm:pb-0">
+  <form id="dform" novalidate class="px-5 pt-2 pb-5 sm:pt-5">
+    <div class="mx-auto mt-1 mb-3 h-1.5 w-10 rounded-full bg-stone-200 dark:bg-teal-700 sm:hidden" aria-hidden="true"></div>
+    <h3 id="dtitle" class="text-xl font-bold">Edit</h3>
+    <p id="dhint" class="mt-0.5 text-sm text-stone-500 empty:hidden dark:text-teal-200/70"></p>
+    <div id="fwho" class="mt-3"><label for="iwho" class="label">Whose saving</label><input id="iwho" maxlength="60" class="input" autocomplete="off" placeholder="e.g. Wife"><div id="whochips" class="mt-2 flex flex-wrap gap-1.5 empty:hidden"></div></div>
+    <div id="fname" class="mt-3"><label for="ilabel" id="llabel" class="label">Name</label><input id="ilabel" maxlength="60" class="input" autocomplete="off" enterkeyhint="next"><div class="err" id="elabel"></div></div>
+    <div id="famt" class="mt-3"><label for="iamt" id="lamt" class="label">Amount</label>
+      <div class="flex gap-2"><input id="iamt" class="input flex-1" type="text" inputmode="decimal" autocomplete="off" placeholder="0" enterkeyhint="done">
+      <select id="icur" aria-label="Currency" class="input w-24 flex-none"><option>MVR</option><option>USD</option></select></div>
+      <div class="err" id="eamt"></div></div>
+    <label id="fme" class="mt-3 flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-stone-200 px-3 py-2 dark:border-teal-700">
+      <input id="ime" type="checkbox" class="size-5 flex-none accent-teal-700 dark:accent-emerald-400">
+      <span class="text-[15px]">This is my share<span class="block text-[12.5px] text-stone-500 dark:text-teal-200/70">Deducted from your income in Budget</span></span></label>
+    <div id="fspent" class="mt-3"><label for="ispent" class="label">Spent so far</label><input id="ispent" class="input" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><div class="err" id="espent"></div></div>
+    <div id="fbank" class="mt-3"><label for="ibank" class="label">Bank</label><input id="ibank" maxlength="30" class="input" autocomplete="off" placeholder="e.g. MIB"></div>
+    <div id="facct" class="mt-3"><label for="iacct" class="label">Account (last 4 digits)</label><input id="iacct" class="input" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="e.g. 2871"></div>
+    <div class="mt-5 flex gap-2">
+      <button type="button" class="btn btn-danger flex-none" id="bdel" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+      <button type="button" class="btn flex-1" id="bcancel">Cancel</button>
+      <button type="submit" class="btn btn-pri flex-1" id="bsave">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirm sheet -->
+<dialog id="cdlg" aria-labelledby="ctitle"
+  class="m-0 mt-auto w-full max-w-full rounded-t-3xl bg-white p-0 pb-[env(safe-area-inset-bottom)] text-stone-900 open:animate-[up_.2s_ease-out] dark:bg-teal-900 dark:text-teal-50 sm:m-auto sm:w-[440px] sm:rounded-3xl sm:pb-0">
+  <div class="px-5 pt-2 pb-5 sm:pt-5">
+    <div class="mx-auto mt-1 mb-3 h-1.5 w-10 rounded-full bg-stone-200 dark:bg-teal-700 sm:hidden" aria-hidden="true"></div>
+    <h3 id="ctitle" class="text-xl font-bold">Are you sure?</h3>
+    <p id="cmsg" class="mt-1 text-sm text-stone-500 dark:text-teal-200/70"></p>
+    <div class="mt-5 flex gap-2"><button class="btn flex-1" id="cno">Cancel</button><button class="btn btn-danger-fill flex-1" id="cyes">Continue</button></div>
+  </div>
+</dialog>
+
+<input type="file" id="ifile" accept="application/json,.json" class="hidden">
+<div id="toast" role="status" aria-live="polite"
+  class="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] left-1/2 z-50 hidden max-w-[calc(100%-28px)] -translate-x-1/2 items-center gap-2.5 rounded-xl bg-stone-900 py-1.5 pr-1.5 pl-4 text-[14.5px] text-white shadow-xl dark:bg-teal-50 dark:text-teal-950 md:bottom-6 md:left-[calc(50%+112px)]">
+  <span id="tmsg"></span><button id="tbtn" class="hidden rounded-lg px-3 py-2.5 font-bold text-emerald-300 dark:text-teal-700">Undo</button>
+</div>
+
+<style>@keyframes up{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style>
+
+<script src="app.js"></script>
+</body>
+</html>
