@@ -1,6 +1,6 @@
 /* Version check: index.html and app.js must come from the same update */
 (function(){const m=document.querySelector('meta[name="tally-version"]');
-  if(!m||m.content!=='22'){document.body.innerHTML='<div style="font:16px/1.5 system-ui;padding:32px 24px;max-width:480px;margin:auto"><h2 style="margin:0 0 8px">Update incomplete</h2><p>Some Tally files are from an older version. Upload <b>all files</b> from the latest tally.zip to GitHub, then reopen the app.</p><p style="opacity:.7">Your saved data is safe.</p></div>';throw new Error('Tally version mismatch');}})();
+  if(!m||m.content!=='24'){document.body.innerHTML='<div style="font:16px/1.5 system-ui;padding:32px 24px;max-width:480px;margin:auto"><h2 style="margin:0 0 8px">Update incomplete</h2><p>Some Tally files are from an older version. Upload <b>all files</b> from the latest tally.zip to GitHub, then reopen the app.</p><p style="opacity:.7">Your saved data is safe.</p></div>';throw new Error('Tally version mismatch');}})();
 /* ================= Data ================= */
 const KEY='family-budget-v1', THEME='family-budget-theme', BKP='family-budget-lastbackup';
 const store={get(k){try{return localStorage.getItem(k)}catch(_){return null}},set(k,v){try{localStorage.setItem(k,v);return true}catch(_){return false}}};
@@ -71,6 +71,11 @@ function cleanData(d){
       const seen2=new Set(); let me2=false; out.members=g.map(x=>{const n=str(x.label,30); if(!n||seen2.has(n.toLowerCase())) return null; seen2.add(n.toLowerCase());
         const me=x.me===true&&!me2; if(me) me2=true; return me?{name:n,me:true}:{name:n};}).filter(Boolean).slice(0,12); break; } } }
   out.houseMode='split';
+  for(const k of Object.keys(out.months)){ const mo=out.months[k], fi=mo.fundIns||[];
+    if(fi.length&&!mo.gave.length){ // no pay-in rows yet: turn old fund payments into ticked rows
+      const by={}; fi.forEach(x=>{by[x.from]=(by[x.from]||0)+x.amt});
+      mo.gave=Object.entries(by).map(([n,a])=>{const g={id:newId(),label:n,amt:Math.round(a*100)/100,done:true}; if(out.members.some(p=>p.me&&p.name===n)) g.me=true; return g;}); }
+    mo.fundIns=[]; }
   const mg=str(d.fundManager,30); out.fundManager=out.members.some(p=>p.name===mg)?mg:((out.members[0]||{}).name||'');
   return out;
 }
@@ -113,7 +118,7 @@ const hasHouse=()=>MEMBERS().length>=2;
 const myShare=e=>isHouse(e)&&e.split.includes(ME())?e.amt/e.split.length:0;
 const houseName=n=>n==='__fund'?'the fund':n===ME()?'You':n;
 const FUND=()=>false; // single model: shared purchases are paid with house money or by a person
-const potIn=m=>(m.gave||[]).filter(x=>x.done).reduce((t,x)=>t+(Number(x.amt)||0),0)+(m.fundIns||[]).reduce((t,x)=>t+x.amt,0);
+const potIn=m=>(m.gave||[]).filter(x=>x.done).reduce((t,x)=>t+(Number(x.amt)||0),0);
 const isFlex=x=>x.flex===true;
 const houseSpentOn=(m,label)=>m.expenses.filter(e=>isHouse(e)&&e.cat===label).reduce((t,e)=>t+e.amt,0);
 const potOut=m=>(m.bills||[]).filter(x=>x.done&&!isFlex(x)).reduce((t,x)=>t+(Number(x.amt)||0),0)+m.expenses.filter(isFundExp).reduce((t,e)=>t+e.amt,0);
@@ -278,7 +283,7 @@ function renderHome(m){
   const T=totals(m), smvr=T.sav, susd=T.usd;
   let h=hero(m,T,done,all.length);
   const lb=+store.get(BKP)||0, days=lb?Math.floor((Date.now()-lb)/864e5):null;
-  h+=guide(m);
+  h+=overlapCard(m)+guide(m);
   if(all.length&&(days===null||days>30)) h+=`<div class="mb-4 flex items-center gap-3 rounded-[22px] border border-amber-200 bg-amber-50 py-3 pr-3 pl-3.5 dark:border-amber-300/15 dark:bg-amber-300/[.06]">
     <span class="grid size-10 flex-none place-items-center rounded-xl bg-amber-200/70 text-amber-800 dark:bg-amber-300/15 dark:text-amber-300"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>
     <p class="min-w-0 flex-1 text-sm"><b class="block font-semibold text-amber-950 dark:text-amber-100">${days===null?'No backup yet':`Last backup ${days} days ago`}</b><span class="text-amber-900 dark:text-amber-200/80">Your data lives only on this phone</span></p>
@@ -390,11 +395,27 @@ function renderHouse(m){
   if(!usesHouse(m)) return h+`<div class="card">${empty('Living with others?','Add the people you live with. Then track what everyone pays in, the shared bills, and shopping for the house. Your budget only counts your part.')}
     <div class="px-4 pb-4"><button class="btn btn-pri w-full" data-act="members">${IC.plus} Add people</button></div></div>`;
   const inM=potIn(m), outM=potOut(m), bal=potBalance(cur), carried=Math.round((bal-inM+outM)*100)/100;
-  h+=`<section class="mb-4 rounded-[26px] bg-lagoon px-5 py-4 text-white dark:bg-lagoon-2/60">
-    <p class="text-sm text-teal-100/75">${bal<0?'House money is short by':'House money now'}</p>
-    <p class="display mt-0.5 text-[36px] leading-none font-semibold tracking-tight tabular-nums ${bal<0?'text-red-200':''}">${bigNum(Math.abs(bal))}<span class="ml-1 text-lg font-medium text-teal-100/60">MVR</span></p>
-    <div class="mt-4 grid grid-cols-3 gap-2 big:grid-cols-1">${[['Paid in',fmt(inM)],['Paid out',fmt(outM)],['Carried over',fmt(carried)]].map(([l,v])=>`<div class="min-w-0 rounded-2xl bg-white/[.07] px-2.5 py-2 big:flex big:items-center big:justify-between big:gap-3 big:px-3"><span class="block truncate text-[12px] text-teal-100/70">${l}</span><span class="block truncate text-[13.5px] font-semibold tabular-nums">${v}</span></div>`).join('')}</div>
-    <p class="mt-3 text-[12.5px] text-teal-100/60">Paid in = ticked payments below. Paid out = ticked bills and shopping paid with house money.</p></section>`;
+  const gotRows=m.gave.filter(x=>x.done), billRows=m.bills.filter(x=>x.done&&!isFlex(x)), shopRows=m.expenses.filter(isFundExp);
+  const line=(l,v,cls='')=>`<li class="flex justify-between gap-3 py-1 ${cls}"><span class="min-w-0">${l}</span><span class="tabular-nums">${v}</span></li>`;
+  h+=`<section class="mb-4 rounded-[26px] bg-lagoon px-5 py-4 text-white dark:bg-lagoon-2/60" aria-label="House money summary">
+    <ul class="text-[15px]">
+      ${carried?line('Left from last month',fmt(carried),'text-teal-100/80'):''}
+      ${line('Collected from people',fmt(inM))}
+      ${line('Spent on bills and shopping','−'+fmt(outM))}
+    </ul>
+    <div class="mt-2 flex items-end justify-between gap-3 border-t border-white/15 pt-3">
+      <span class="text-[15px] font-semibold">${bal<0?'Short by':'Left over'}</span>
+      <span class="display text-[32px] leading-none font-semibold tracking-tight tabular-nums ${bal<0?'text-red-200':''}">${bigNum(Math.abs(bal))}<span class="ml-1 text-base font-medium text-teal-100/70">MVR</span></span>
+    </div>
+    <details class="group mt-3 rounded-2xl bg-white/[.06] px-3 py-1 text-sm">
+      <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between font-semibold">Show every item<svg class="icon size-5 transition-transform group-open:rotate-180" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary>
+      <p class="mt-1 font-semibold text-teal-100/90">Collected (ticked in Paying in)</p>
+      <ul class="text-teal-50">${gotRows.length?gotRows.map(x=>line(esc(x.label),fmt(x.amt))).join(''):line('Nothing ticked yet','0/-')}${line('<b>Total</b>','<b>'+fmt(inM)+'</b>')}</ul>
+      <p class="mt-3 font-semibold text-teal-100/90">Spent (ticked bills, and shopping paid with house money)</p>
+      <ul class="text-teal-50">${billRows.map(x=>line(esc(x.label),fmt(x.amt))).join('')}${shopRows.map(e=>line(esc(e.note||e.cat)+(e.note&&e.cat!=='Other'?' ('+esc(e.cat)+')':''),fmt(e.amt))).join('')}${!billRows.length&&!shopRows.length?line('Nothing yet','0/-'):''}${line('<b>Total</b>','<b>'+fmt(outM)+'</b>')}</ul>
+      <p class="mt-3 mb-2 text-teal-100/80">Not counted: unticked bills, and “spend as you go” budgets like Food (only the shopping counts).</p>
+    </details></section>`;
+  h+=overlapCard(m);
   // pay-ins
   const gt=sum(m.gave), bt=sum(m.bills), gd=m.gave.filter(x=>x.done).length;
   h+=`<div class="${GRID2}"><section class="card"><div class="card-h"><h3 class="card-t">Paying in</h3><span class="meta">tick when received</span></div>
@@ -446,10 +467,29 @@ function renderBills(m){
   return h;
 }
 
+const SYN=[['food','grocer','groceries','grocery','kitchen'],['rent','house rent','room'],['electric','electricity','stelco','power'],['water','mwsc'],['internet','wifi','wi-fi','broadband','dhiraagu','ooredoo']];
+function topic(label){const l=String(label).toLowerCase(); for(const g of SYN) if(g.some(w=>l.includes(w))) return g[0]; return l.trim();}
+function overlaps(m){
+  const out=[], houseOn=usesHouse(m);
+  if(houseOn){
+    const hb=new Map(m.bills.map(b=>[topic(b.label),b]));
+    m.fixed.forEach(f=>{const b=hb.get(topic(f.label)); if(b) out.push({txt:`“${f.label}” is in your Fixed bills and “${b.label}” is a shared House bill. Your house payment already covers it, so it may be counted twice.`,act:'fixed'});});
+    m.budget.forEach(c=>{const b=hb.get(topic(c.label)); if(b) out.push({txt:`Your spending category “${c.label}” looks like the shared House budget “${b.label}”. Keep it only for things you buy just for yourself.`,act:'budget'});});
+  }
+  const seen=new Map();
+  m.expenses.forEach(e=>{const k=[e.date,e.amt,!!isHouse(e)].join('|'); if(seen.has(k)) out.push({txt:`Two ${isHouse(e)?'House':'personal'} expenses of ${fmt(e.amt)} (${dayLabel(e.date)}${e.note?`, “${e.note}”`:''}). Is one a duplicate?`,act:isHouse(e)?'house':'spending'}); else seen.set(k,1);});
+  return out;
+}
+function overlapCard(m){
+  const o=overlaps(m); if(!o.length) return '';
+  return `<section class="mb-4 rounded-[22px] border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-300/25 dark:bg-amber-300/[.07]" role="alert">
+    <p class="font-semibold text-amber-950 dark:text-amber-100">Possible double counting (${o.length})</p>
+    <ul class="mt-1 grid gap-2">${o.map(x=>`<li class="flex items-start gap-3 text-sm text-amber-950 dark:text-amber-100"><span class="flex-1">${esc(x.txt)}</span><button class="min-h-9 flex-none rounded-full bg-amber-900 px-3 text-[13px] font-semibold text-amber-50 dark:bg-amber-300/20 dark:text-amber-100" data-act="go" data-to="${x.act}">Check</button></li>`).join('')}</ul></section>`;
+}
 function renderBudget(m){
   const T=totals(m);
   const lt=T.left===0?['tag-ok','All assigned']:T.left>0?['tag-warn',fmt(T.left)+' left to assign']:['tag-bad',fmt(-T.left)+' over income'];
-  let h=pageHead('Budget',T.inc?`${fmt(T.inc)} in, ${fmt(T.alloc)} planned`:'Add income, then share it out',T.inc?`<span class="tag ${lt[0]}">${lt[1]}</span>`:'');
+  let h=pageHead('Budget',T.inc?`${fmt(T.inc)} in, ${fmt(T.alloc)} planned`:'Add income, then share it out',T.inc?`<span class="tag ${lt[0]}">${lt[1]}</span>`:'')+overlapCard(m);
   h+=`<div class="${GRID2}">`;
   // Income
   h+=`<section class="card"><div class="card-h"><h3 class="card-t">Income</h3><span class="meta">tick when received</span></div>
