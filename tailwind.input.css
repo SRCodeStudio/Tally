@@ -4,6 +4,8 @@
 
 /* Dark mode follows data-theme on <html> (set from System / Light / Dark) */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+/* Larger text setting: stack tiles so nothing is cut off */
+@custom-variant big (&:where([data-text=big], [data-text=big] *));
 
 /* Bundled fonts (work offline) */
 @font-face { font-family: "Bricolage"; src: url("fonts/bricolage.woff2") format("woff2-variations"); font-weight: 200 800; font-display: swap; }
@@ -34,7 +36,7 @@
   .card      { @apply mb-4 overflow-hidden rounded-[22px] border border-line bg-white shadow-[0_1px_2px_rgba(6,48,43,.04)] dark:border-teal-800/50 dark:bg-teal-900/35 dark:shadow-[inset_0_1px_0_rgba(255,255,255,.04)]; }
   .card-h    { @apply flex items-center justify-between gap-2 px-4 pt-3.5 pb-2.5; }
   .card-t    { @apply font-display text-[17px] font-semibold tracking-tight; }
-  .meta      { @apply text-[13px] text-teal-900/55 dark:text-teal-200/65; }
+  .meta      { @apply text-[13px] text-[#4a6964] dark:text-teal-200/65; }
   .total     { @apply mx-2 mb-2 flex justify-between rounded-2xl bg-mist px-3 py-2.5 font-semibold dark:bg-teal-950/60; }
   .link-btn  { @apply min-h-10 rounded-full px-3 text-sm font-semibold text-teal-700 hover:bg-teal-50 dark:text-reef dark:hover:bg-teal-800/60; }
   .add-btn   { @apply flex min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-[15px] font-semibold text-teal-700 hover:bg-mist dark:border-teal-800/50 dark:text-reef dark:hover:bg-teal-900; }
@@ -47,7 +49,7 @@
   .tag-warn  { @apply bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300; }
   .tag-bad   { @apply bg-red-100 text-red-700 dark:bg-red-400/15 dark:text-red-300; }
   .input     { @apply min-h-12 w-full rounded-2xl border-[1.5px] border-line bg-mist px-3.5 text-base outline-none caret-teal-700 focus:border-teal-600 focus:bg-white aria-invalid:border-red-600 dark:border-teal-700 dark:bg-teal-950 dark:text-teal-50 dark:caret-reef dark:placeholder:text-teal-200/40 dark:focus:border-reef dark:focus:bg-teal-950 dark:aria-invalid:border-red-400; }
-  .label     { @apply mb-1.5 block text-[13px] font-semibold text-teal-900/60 dark:text-teal-200/70; }
+  .label     { @apply mb-1.5 block text-[13px] font-semibold text-[#4a6964] dark:text-teal-200/70; }
   .err       { @apply mt-1 text-[13px] text-red-700 empty:hidden dark:text-red-300; }
   .icon      { @apply size-[22px] shrink-0 fill-none stroke-current stroke-2; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -67,3 +69,16 @@
 @media (prefers-reduced-motion: reduce) {
   *, .tally.animate line { animation: none !important; transition: none !important; stroke-dashoffset: 0 !important; }
 }
+
+/* High contrast: darker secondary text, stronger lines (setting, or phone's "Increase contrast") */
+:root[data-contrast=high] [class*="text-teal-900/"], :root[data-contrast=high] [class*="4a6964"], :root[data-contrast=high] [class*="557570"], :root[data-contrast=high] .meta, :root[data-contrast=high] .label { color: #052e2b !important; }
+:root[data-contrast=high] [class*="border-line"], :root[data-contrast=high] .card { border-color: #6f938b !important; }
+:root[data-contrast=high][data-theme=dark] [class*="text-teal-200/"], :root[data-contrast=high][data-theme=dark] [class*="text-teal-100/"],
+:root[data-contrast=high][data-theme=dark] .meta, :root[data-contrast=high][data-theme=dark] .label { color: #ecfdf8 !important; }
+:root[data-contrast=high][data-theme=dark] .card, :root[data-contrast=high][data-theme=dark] [class*="border-teal-800"] { border-color: #5eead4 !important; }
+@media (prefers-contrast: more) {
+  [class*="text-teal-900/"], [class*="4a6964"], [class*="557570"], .meta, .label { color: #052e2b !important; }
+  [data-theme=dark] [class*="text-teal-200/"], [data-theme=dark] [class*="text-teal-100/"], [data-theme=dark] .meta, [data-theme=dark] .label { color: #ecfdf8 !important; }
+}
+/* Larger text: let long names wrap onto a second line instead of being cut off */
+:root[data-text=big] #app .truncate { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }

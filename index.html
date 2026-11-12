@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="tally-version" content="19">
+<meta name="tally-version" content="21">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -31,34 +31,34 @@
     <div class="hidden items-center gap-2.5 px-3 pb-6 font-display text-[22px] font-semibold tracking-tight md:flex">
       <img src="icon-192.png" alt="" class="size-7 rounded-lg">Tally
     </div>
-    <button data-tab="home" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-teal-900/55 aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
+    <button data-tab="home" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-[#4a6964] aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
       <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-100 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span>Home</button>
-    <button data-tab="budget" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-teal-900/55 aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
+    <button data-tab="budget" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-[#4a6964] aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
       <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-100 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg></span>Budget</button>
-    <button data-tab="spending" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-teal-900/55 aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
+    <button data-tab="spending" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-[#4a6964] aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
       <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-100 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></span>Spending</button>
-    <button data-tab="savings" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-teal-900/55 aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
+    <button data-tab="savings" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-[#4a6964] aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
       <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-100 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><path d="M19 7h-1V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M3 7h15"/><circle cx="16" cy="14" r="1.2"/></svg></span>Savings</button>
-    <button data-tab="bills" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-teal-900/55 aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
-      <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-100 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg></span>Bills</button>
-    <button data-tab="more" class="nav-b group hidden md:flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-teal-900/55 aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
+    <button data-tab="house" class="nav-b group flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-[#4a6964] aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
+      <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-100 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg></span>House</button>
+    <button data-tab="more" class="nav-b group hidden md:flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[22px] px-0.5 py-1 text-[11.5px] font-semibold text-[#4a6964] aria-[current=page]:text-teal-900 dark:text-teal-200/70 dark:aria-[current=page]:text-emerald-300 md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-full md:px-4 md:text-[15px] md:aria-[current=page]:bg-teal-100 dark:md:aria-[current=page]:bg-teal-800/60">
       <span class="grid place-items-center rounded-full px-4 py-0.5 group-aria-[current=page]:bg-teal-100 dark:group-aria-[current=page]:bg-teal-800/60 md:p-0 md:group-aria-[current=page]:bg-transparent dark:md:group-aria-[current=page]:bg-transparent"><svg class="icon" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></span>More</button>
   </nav>
 
   <div class="flex min-w-0 flex-1 flex-col">
     <header class="sticky top-0 z-10 bg-mist/85 px-3 pt-[calc(8px+env(safe-area-inset-top))] pb-2 backdrop-blur-md dark:bg-teal-950/85">
-      <div class="mx-auto flex min-h-12 max-w-5xl items-center gap-2">
-        <div class="flex items-center rounded-full border border-line bg-white p-1 shadow-[0_1px_2px_rgba(6,48,43,.06)] dark:border-teal-800/70 dark:bg-teal-900/50 dark:shadow-none">
-          <button id="prev" aria-label="Previous month" class="grid size-9 place-items-center rounded-full text-teal-900/70 hover:bg-mist dark:text-teal-100/80 dark:hover:bg-teal-800"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-          <button id="mtitle" aria-live="polite" title="Go to this month" class="min-h-9 min-w-[150px] rounded-full px-2 text-center font-display text-[16.5px] font-semibold tracking-tight">—</button>
-          <button id="next" aria-label="Next month" class="grid size-9 place-items-center rounded-full text-teal-900/70 hover:bg-mist dark:text-teal-100/80 dark:hover:bg-teal-800"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+      <div class="mx-auto flex min-h-12 max-w-5xl items-center gap-2 big:gap-1">
+        <div class="flex min-w-0 shrink items-center rounded-full border border-line bg-white p-1 shadow-[0_1px_2px_rgba(6,48,43,.06)] dark:border-teal-800/70 dark:bg-teal-900/50 dark:shadow-none">
+          <button id="prev" aria-label="Previous month" class="grid size-9 big:size-8 place-items-center rounded-full text-[#4a6964] hover:bg-mist dark:text-teal-100/80 dark:hover:bg-teal-800"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <button id="mtitle" aria-live="polite" title="Go to this month" class="min-h-9 min-w-0 truncate rounded-full px-2 text-center sm:min-w-[150px] font-display text-[16.5px] font-semibold tracking-tight">—</button>
+          <button id="next" aria-label="Next month" class="grid size-9 big:size-8 place-items-center rounded-full text-[#4a6964] hover:bg-mist dark:text-teal-100/80 dark:hover:bg-teal-800"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
         <button id="today" class="hidden min-h-9 rounded-full bg-teal-100 px-3 text-[13px] font-semibold text-teal-900 hover:bg-teal-200 dark:bg-teal-800 dark:text-reef">Today</button>
         <span class="flex-1"></span>
-        <button id="eye" aria-pressed="false" aria-label="Hide amounts" class="group grid size-11 place-items-center rounded-full text-teal-900/55 hover:bg-mist aria-pressed:bg-teal-100 aria-pressed:text-teal-900 dark:text-teal-200/80 dark:hover:bg-teal-900 dark:aria-pressed:bg-teal-800 dark:aria-pressed:text-reef">
+        <button id="eye" aria-pressed="false" aria-label="Hide amounts" class="group grid size-11 flex-none big:size-10 big:max-[360px]:hidden place-items-center rounded-full text-[#4a6964] hover:bg-mist aria-pressed:bg-teal-100 aria-pressed:text-teal-900 dark:text-teal-200/80 dark:hover:bg-teal-900 dark:aria-pressed:bg-teal-800 dark:aria-pressed:text-reef">
           <svg class="icon group-aria-pressed:hidden" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
           <svg class="icon hidden group-aria-pressed:block" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/></svg></button>
-        <button id="gear" aria-label="More: settings and backup" class="grid size-11 place-items-center rounded-full text-teal-900/55 hover:bg-mist dark:text-teal-200/80 dark:hover:bg-teal-900 md:hidden"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+        <button id="gear" aria-label="More: settings and backup" class="grid size-11 flex-none big:size-10 place-items-center rounded-full text-[#4a6964] hover:bg-mist dark:text-teal-200/80 dark:hover:bg-teal-900 md:hidden"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
       </div>
     </header>
     <main id="app" tabindex="-1" class="mx-auto w-full max-w-5xl flex-1 px-3.5 pt-3.5 pb-[calc(160px+env(safe-area-inset-bottom))] outline-none md:px-6 md:pt-5 md:pb-28"></main>
@@ -71,7 +71,7 @@
   <form id="dform" novalidate class="px-5 pt-2 pb-5 sm:pt-5">
     <div class="mx-auto mt-1 mb-3 h-1.5 w-10 rounded-full bg-line dark:bg-teal-700 sm:hidden" aria-hidden="true"></div>
     <h3 id="dtitle" class="text-[22px] font-semibold tracking-tight">Edit</h3>
-    <p id="dhint" class="mt-0.5 text-sm text-teal-900/55 empty:hidden dark:text-teal-200/70"></p>
+    <p id="dhint" class="mt-0.5 text-sm text-[#4a6964] empty:hidden dark:text-teal-200/70"></p>
     <div id="fwho" class="mt-3"><label for="iwho" class="label">Whose saving</label><input id="iwho" maxlength="60" class="input" autocomplete="off" placeholder="e.g. Wife"><div id="whochips" class="mt-2 flex flex-wrap gap-1.5 empty:hidden"></div></div>
     <div id="fname" class="mt-3"><label for="ilabel" id="llabel" class="label">Name</label><input id="ilabel" maxlength="60" class="input" autocomplete="off" enterkeyhint="next"><div class="err" id="elabel"></div></div>
     <div id="famt" class="mt-3"><label for="iamt" id="lamt" class="label">Amount</label>
@@ -82,12 +82,12 @@
       <input id="iadd" class="input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1000 (leave empty if none)"><div class="err" id="eadd"></div></div>
     <label id="fext" class="mt-3 flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-line px-3 py-2 dark:border-teal-700">
       <input id="iext" type="checkbox" class="size-5 flex-none accent-teal-700 dark:accent-emerald-400">
-      <span class="text-[15px]">Not from my income<span class="block text-[12.5px] text-teal-900/55 dark:text-teal-200/70">Someone else pays this deposit, so Budget won’t deduct it</span></span></label>
+      <span class="text-[15px]">Not from my income<span class="block text-[12.5px] text-[#4a6964] dark:text-teal-200/70">Someone else pays this deposit, so Budget won’t deduct it</span></span></label>
     <div id="fdue" class="mt-3"><label for="idue" id="ldue" class="label">Due day of month (optional)</label>
       <input id="idue" class="input" type="text" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="e.g. 5"><div class="err" id="edue"></div></div>
     <label id="fme" class="mt-3 flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-line px-3 py-2 dark:border-teal-700">
       <input id="ime" type="checkbox" class="size-5 flex-none accent-teal-700 dark:accent-emerald-400">
-      <span class="text-[15px]">This is my share<span class="block text-[12.5px] text-teal-900/55 dark:text-teal-200/70">Deducted from your income in Budget</span></span></label>
+      <span class="text-[15px]">This is my share<span class="block text-[12.5px] text-[#4a6964] dark:text-teal-200/70">Deducted from your income in Budget</span></span></label>
     <div id="fbank" class="mt-3"><label for="ibank" class="label">Bank</label><input id="ibank" maxlength="30" class="input" autocomplete="off" placeholder="e.g. MIB"></div>
     <div id="facct" class="mt-3"><label for="iacct" class="label">Account (last 4 digits)</label><input id="iacct" class="input" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="e.g. 2871"></div>
     <div class="mt-5 flex gap-2">
@@ -104,14 +104,14 @@
   <div class="px-5 pt-2 pb-5 sm:pt-5">
     <div class="mx-auto mt-1 mb-3 h-1.5 w-10 rounded-full bg-line dark:bg-teal-700 sm:hidden" aria-hidden="true"></div>
     <h3 id="ctitle" class="text-[22px] font-semibold tracking-tight">Are you sure?</h3>
-    <p id="cmsg" class="mt-1 text-sm text-teal-900/55 dark:text-teal-200/70"></p>
+    <p id="cmsg" class="mt-1 text-sm text-[#4a6964] dark:text-teal-200/70"></p>
     <div class="mt-5 flex gap-2"><button class="btn flex-1" id="cno">Cancel</button><button class="btn btn-danger-fill flex-1" id="cyes">Continue</button></div>
   </div>
 </dialog>
 
 <button id="fab" aria-label="Add expense (shortcut: E)"
-  class="fixed right-4 bottom-[calc(88px+env(safe-area-inset-bottom))] z-20 inline-flex h-14 items-center gap-2 rounded-full bg-teal-800 pr-5 pl-4 font-bold text-white shadow-lg shadow-teal-900/25 hover:bg-teal-900 active:scale-95 dark:bg-reef dark:text-teal-950 dark:shadow-black/40 dark:hover:bg-emerald-300 md:right-8 md:bottom-8">
-  <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Expense</button>
+  class="fixed right-4 bottom-[calc(92px+env(safe-area-inset-bottom))] z-20 inline-flex size-14 items-center justify-center gap-2 rounded-full bg-teal-800 font-bold text-white shadow-lg shadow-teal-900/30 transition-[transform,opacity] duration-200 hover:bg-teal-900 active:scale-95 data-[away=true]:pointer-events-none data-[away=true]:translate-y-24 data-[away=true]:opacity-0 dark:bg-reef dark:text-teal-950 dark:shadow-black/40 dark:hover:bg-emerald-300 md:right-8 md:bottom-8 md:h-14 md:w-auto md:pr-5 md:pl-4">
+  <svg class="icon size-6 md:size-[22px]" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="hidden md:inline">Expense</span></button>
 
 <dialog id="edlg" aria-labelledby="etitle"
   class="m-0 mt-auto w-full max-w-full rounded-t-[28px] bg-white p-0 pb-[env(safe-area-inset-bottom)] text-teal-950 open:animate-[up_.2s_ease-out] dark:bg-teal-900 dark:text-teal-50 sm:m-auto sm:w-[440px] sm:rounded-[28px] sm:pb-0">
@@ -121,10 +121,10 @@
     <div id="escope" role="radiogroup" aria-label="Whose expense" class="mt-3 grid grid-cols-2 gap-1 rounded-full bg-mist p-1 dark:bg-teal-950"></div>
     <div class="mt-3"><label for="eamt2" class="label">Amount (MVR)</label>
       <input id="eamt2" class="input text-2xl font-bold tabular-nums" type="text" inputmode="decimal" autocomplete="off" placeholder="0" enterkeyhint="done"><div class="err" id="eerr"></div></div>
-    <p id="efund" class="mt-3 hidden rounded-2xl bg-mist px-3.5 py-2.5 text-sm text-teal-900/70 dark:bg-teal-950 dark:text-teal-200/80"></p>
+    <p id="efund" class="mt-3 hidden rounded-2xl bg-mist px-3.5 py-2.5 text-sm text-[#4a6964] dark:bg-teal-950 dark:text-teal-200/80"></p>
     <div id="ehouse" class="hidden">
-      <div class="mt-3"><span class="label">Paid by</span><div id="epaid" class="flex flex-wrap gap-1.5"></div></div>
-      <div class="mt-3"><span class="label">Split between <span id="eshare" class="font-normal"></span></span><div id="esplit" class="flex flex-wrap gap-1.5"></div><div class="err" id="eserr"></div></div>
+      <div class="mt-3"><span class="label">Paid with</span><div id="epaid" class="flex flex-wrap gap-1.5"></div></div>
+      <div id="esplitwrap" class="mt-3"><span class="label">Split between <span id="eshare" class="font-normal"></span></span><div id="esplit" class="flex flex-wrap gap-1.5"></div><div class="err" id="eserr"></div></div>
     </div>
     <div class="mt-3"><span class="label">Category</span><div id="ecats" class="flex flex-wrap gap-1.5"></div><div class="err" id="ecerr"></div></div>
     <div class="mt-3 grid grid-cols-[1fr_1.4fr] gap-2">
@@ -167,13 +167,13 @@
   <form id="pwform" novalidate class="px-5 pt-2 pb-5 sm:pt-5">
     <div class="mx-auto mt-1 mb-3 h-1.5 w-10 rounded-full bg-line dark:bg-teal-700 sm:hidden" aria-hidden="true"></div>
     <h3 id="pwtitle" class="text-[22px] font-semibold tracking-tight">Protect your backup</h3>
-    <p id="pwhint" class="mt-1 text-sm text-teal-900/55 dark:text-teal-200/70"></p>
+    <p id="pwhint" class="mt-1 text-sm text-[#4a6964] dark:text-teal-200/70"></p>
     <input type="text" autocomplete="username" value="Tally backup" class="hidden" aria-hidden="true" tabindex="-1">
     <div class="mt-3"><label for="pw1" class="label">Password</label><input id="pw1" type="password" class="input" minlength="6" maxlength="128"></div>
     <div id="pw2wrap" class="mt-3"><label for="pw2" class="label">Type it again</label><input id="pw2" type="password" class="input" autocomplete="new-password" maxlength="128"></div>
     <div class="err" id="pwerr" role="alert"></div>
     <div class="mt-5 flex gap-2"><button type="button" class="btn flex-1" id="pwcancel">Cancel</button><button type="submit" class="btn btn-pri flex-[1.6]" id="pwgo">Save protected backup</button></div>
-    <button type="button" id="pwplain" class="mt-3 w-full min-h-10 rounded-full text-sm font-semibold text-teal-900/55 hover:bg-mist dark:text-teal-200/70 dark:hover:bg-teal-800">Save without a password</button>
+    <button type="button" id="pwplain" class="mt-3 w-full min-h-10 rounded-full text-sm font-semibold text-[#4a6964] hover:bg-mist dark:text-teal-200/70 dark:hover:bg-teal-800">Save without a password</button>
   </form>
 </dialog>
 
@@ -181,14 +181,14 @@
   class="m-0 mt-auto w-full max-w-full rounded-t-[28px] bg-white p-0 pb-[env(safe-area-inset-bottom)] text-teal-950 open:animate-[up_.2s_ease-out] dark:bg-teal-900 dark:text-teal-50 sm:m-auto sm:w-[460px] sm:rounded-[28px] sm:pb-0">
   <form id="mform" novalidate class="px-5 pt-2 pb-5 sm:pt-5">
     <div class="mx-auto mt-1 mb-3 h-1.5 w-10 rounded-full bg-line dark:bg-teal-700 sm:hidden" aria-hidden="true"></div>
-    <h3 id="mtitle2" class="text-[22px] font-semibold tracking-tight">Your household</h3>
-    <p class="mt-1 text-sm text-teal-900/55 dark:text-teal-200/70">Everyone who shares household costs. Mark which one is you.</p>
+    <h3 id="mtitle2" class="text-[22px] font-semibold tracking-tight">People you live with</h3>
+    <p class="mt-1 text-sm text-[#4a6964] dark:text-teal-200/70">Everyone who shares house costs. Tap “Me?” next to your own name.</p>
     <div id="mmode" role="radiogroup" aria-label="How you share" class="mt-3 grid grid-cols-2 gap-1 rounded-full bg-mist p-1 dark:bg-teal-950"></div>
-    <p id="mmodehint" class="mt-1.5 text-[13px] text-teal-900/55 dark:text-teal-200/70"></p>
+    <p id="mmodehint" class="mt-1.5 text-[13px] text-[#4a6964] dark:text-teal-200/70"></p>
     <div id="mlist" class="mt-3 grid gap-2"></div>
     <button type="button" id="madd" class="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line text-sm font-semibold text-teal-700 hover:bg-mist dark:border-teal-700 dark:text-reef dark:hover:bg-teal-800"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add person</button>
     <div id="mmgrwrap" class="mt-4 hidden"><span class="label">Who manages the fund</span><div id="mmgr" class="flex flex-wrap gap-1.5"></div></div>
-    <div class="mt-4"><label for="mplan" id="lplan" class="label">Household budget this month (optional)</label>
+    <div id="mplanwrap" class="mt-4 hidden"><label for="mplan" id="lplan" class="label">Household budget this month (optional)</label>
       <input id="mplan" class="input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 4000 for shared food"></div>
     <div class="err" id="merr" role="alert"></div>
     <div class="mt-5 flex gap-2"><button type="button" class="btn flex-1" id="mcancel">Cancel</button><button type="submit" class="btn btn-pri flex-1">Save</button></div>
