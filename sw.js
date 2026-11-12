@@ -1,5 +1,5 @@
 // Offline cache. Bump VERSION when you change any file so phones pick up the update.
-const VERSION = 'tally-v21';
+const VERSION = 'tally-v22';
 const FILES = ['./', './index.html', './manifest.json', './tailwind.css', './app.js', './theme.js', './fonts/figtree.woff2', './fonts/bricolage.woff2', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

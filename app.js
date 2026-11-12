@@ -1,6 +1,6 @@
 /* Version check: index.html and app.js must come from the same update */
 (function(){const m=document.querySelector('meta[name="tally-version"]');
-  if(!m||m.content!=='21'){document.body.innerHTML='<div style="font:16px/1.5 system-ui;padding:32px 24px;max-width:480px;margin:auto"><h2 style="margin:0 0 8px">Update incomplete</h2><p>Some Tally files are from an older version. Upload <b>all files</b> from the latest tally.zip to GitHub, then reopen the app.</p><p style="opacity:.7">Your saved data is safe.</p></div>';throw new Error('Tally version mismatch');}})();
+  if(!m||m.content!=='22'){document.body.innerHTML='<div style="font:16px/1.5 system-ui;padding:32px 24px;max-width:480px;margin:auto"><h2 style="margin:0 0 8px">Update incomplete</h2><p>Some Tally files are from an older version. Upload <b>all files</b> from the latest tally.zip to GitHub, then reopen the app.</p><p style="opacity:.7">Your saved data is safe.</p></div>';throw new Error('Tally version mismatch');}})();
 /* ================= Data ================= */
 const KEY='family-budget-v1', THEME='family-budget-theme', BKP='family-budget-lastbackup';
 const store={get(k){try{return localStorage.getItem(k)}catch(_){return null}},set(k,v){try{localStorage.setItem(k,v);return true}catch(_){return false}}};
@@ -18,6 +18,7 @@ function cleanItem(x,list){
   if(list==='savings'){o.who=str(x.who)||'Other';o.cur=x.cur==='USD'?'USD':'MVR';o.add=money(x.add);if(x.ext===true)o.ext=true;if(!o.add)o.done=false}
   if(list==='budget'){o.spent=money(x.spent);delete o.done}
   if(list==='gave'&&x.me===true) o.me=true;
+  if(list==='bills'){ if(x.flex===true||(x.flex===undefined&&/\b(food|grocer)/i.test(o.label))){o.flex=true;o.done=false;} else if(x.flex===false) o.flex=false; }
   if(DUE_LISTS.includes(list)){const d=Number(x.due); if(Number.isInteger(d)&&d>=1&&d<=31) o.due=d;}
   return o;
 }
@@ -113,7 +114,9 @@ const myShare=e=>isHouse(e)&&e.split.includes(ME())?e.amt/e.split.length:0;
 const houseName=n=>n==='__fund'?'the fund':n===ME()?'You':n;
 const FUND=()=>false; // single model: shared purchases are paid with house money or by a person
 const potIn=m=>(m.gave||[]).filter(x=>x.done).reduce((t,x)=>t+(Number(x.amt)||0),0)+(m.fundIns||[]).reduce((t,x)=>t+x.amt,0);
-const potOut=m=>(m.bills||[]).filter(x=>x.done).reduce((t,x)=>t+(Number(x.amt)||0),0)+m.expenses.filter(isFundExp).reduce((t,e)=>t+e.amt,0);
+const isFlex=x=>x.flex===true;
+const houseSpentOn=(m,label)=>m.expenses.filter(e=>isHouse(e)&&e.cat===label).reduce((t,e)=>t+e.amt,0);
+const potOut=m=>(m.bills||[]).filter(x=>x.done&&!isFlex(x)).reduce((t,x)=>t+(Number(x.amt)||0),0)+m.expenses.filter(isFundExp).reduce((t,e)=>t+e.amt,0);
 function potBalance(upTo=cur){let b=0;for(const k of Object.keys(S.months)){if(k>upTo)continue;b+=potIn(S.months[k])-potOut(S.months[k]);}return Math.round(b*100)/100;}
 const usesHouse=m=>hasHouse()||(m&&((m.gave||[]).length||(m.bills||[]).length));
 const isFundExp=e=>isHouse(e)&&e.paidBy==='__fund';
@@ -268,7 +271,7 @@ function renderNoMonth(){
 }
 
 function renderHome(m){
-  const all=['income','savings','fixed','bills','gave'].flatMap(l=>l==='savings'?m[l].filter(savActive):m[l]);
+  const all=['income','savings','fixed','bills','gave'].flatMap(l=>l==='savings'?m[l].filter(savActive):l==='bills'?m[l].filter(x=>!isFlex(x)):m[l]);
   const done=all.filter(x=>x.done).length;
   const bt=sum(m.bills),gt=sum(m.gave),rem=gt-bt;
   const ft=sum(m.fixed),fp=sum(m.fixed,x=>x.done);
@@ -291,7 +294,7 @@ function renderHome(m){
     ${kpi('Spending',fmt(T.spent),T.plan?`of ${fmt(T.plan)} planned`:`${m.expenses.length} expense${m.expenses.length===1?'':'s'}`,T.plan?pct(T.spent,T.plan):null,'spending',T.spent>T.plan)}
     ${(()=>{const pb=potBalance(cur);return usesHouse(m)?kpi('House money',`<span class="${pb<0?'text-red-700 dark:text-red-300':''}">${pb<0?'−':''}${fmt(Math.abs(pb))}</span>`,`${m.gave.filter(x=>x.done).length}/${m.gave.length} paid in`,null,'house'):kpi('House money','—','Not sharing a house',null,'house')})()}
   </div>`;
-  const todo=[]; for(const l of ['income','savings','fixed','bills','gave']) m[l].filter(x=>!x.done&&(l!=='savings'||savActive(x))).forEach(x=>todo.push([l,x]));
+  const todo=[]; for(const l of ['income','savings','fixed','bills','gave']) m[l].filter(x=>!x.done&&(l!=='savings'||savActive(x))&&!(l==='bills'&&isFlex(x))).forEach(x=>todo.push([l,x]));
   const rank=x=>{const d=dueInfo(x);return d?(d.lvl===3?-100+x.due:x.due):99};
   todo.sort((a,b)=>rank(a[1])-rank(b[1]));
   const overdue=todo.filter(([l,x])=>(dueInfo(x)||{}).lvl===3).length;
@@ -399,14 +402,25 @@ function renderHouse(m){
       +`<div class="total"><span>Total <span class="font-medium ${MUTE}">${gd}/${m.gave.length} paid</span></span><span class="tabular-nums">${fmt(gt)}</span></div>`
       :empty('Nobody added yet','Tap Edit people to add who pays in.')}
     <button class="add-btn" data-act="members">${IC.plus} Add or edit people</button></section>`;
-  h+=listCard('bills',m.bills,'Shared bills',fmt(bt))+'</div>';
+  const fixedB=m.bills.filter(x=>!isFlex(x)), flexB=m.bills.filter(isFlex), fd=fixedB.filter(x=>x.done).length;
+  h+=`<section class="card"><div class="card-h"><h3 class="card-t">Shared bills</h3>${fixedB.length?`<button class="link-btn" data-act="all" data-list="bills">${fd===fixedB.length?'Untick all':'Tick all'}</button>`:''}</div>
+    ${fixedB.map(x=>row('bills',x)).join('')}
+    ${flexB.map((x,i)=>{const plan=Number(x.amt)||0, sp=houseSpentOn(m,x.label), left=plan-sp, over=left<0;
+      return `<div class="flex items-center gap-2 border-b border-line px-4 dark:border-teal-800/60">
+        <button class="flex min-h-16 min-w-0 flex-1 flex-col justify-center gap-1 py-2.5 text-left" data-act="edit" data-list="bills" data-id="${esc(x.id)}">
+          <span class="flex w-full items-center gap-2"><span class="min-w-0 flex-1 truncate">${esc(x.label)}</span><span class="font-semibold tabular-nums">${fmt(plan)}</span></span>
+          <span class="h-1.5 w-full overflow-hidden rounded-full bg-mist dark:bg-teal-950"><span class="block h-full rounded-full ${over?'bg-red-500 dark:bg-red-400':'bg-teal-700 dark:bg-reef'}" style="width:${Math.min(100,pct(sp,plan||sp||1))}%"></span></span>
+          <span class="flex w-full justify-between text-[12.5px] tabular-nums ${MUTE}"><span>Spend as you go, ${fmt(sp)} spent</span><span class="${over?'font-semibold text-red-700 dark:text-red-300':''}">${over?fmt(-left)+' over':fmt(left)+' left'}</span></span></button>
+        <button class="grid size-11 flex-none place-items-center rounded-xl border border-line text-teal-700 hover:bg-teal-50 dark:border-teal-700 dark:text-reef dark:hover:bg-teal-800" data-act="addexp" data-scope="house" data-cat="${esc(x.label)}" aria-label="Add ${esc(x.label)} shopping">${IC.spend}</button></div>`}).join('')}
+    ${m.bills.length?`<div class="total"><span>Total</span><span class="tabular-nums">${fmt(bt)}</span></div>`:empty('No shared bills yet','Rent, electric, water, internet… and shared budgets like Food.')}
+    ${addBtn('bills')}</section></div>`;
   if(bt&&gt&&Math.abs(gt-bt)>0.004) h+=`<p class="-mt-2 mx-1 mb-4 text-[13px] ${gt>bt?MUTE:'font-semibold text-red-700 dark:text-red-300'}">${gt>bt?`Pay-ins are ${fmt(gt-bt)} more than the bills. It stays in house money for shopping.`:`Pay-ins are ${fmt(bt-gt)} short of the bills.`}</p>`;
   // shared shopping
   const hx=m.expenses.filter(isHouse).slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
   h+=`<section class="card"><div class="card-h"><h3 class="card-t">Shopping for the house</h3><span class="meta tabular-nums">${hx.length?fmt(hx.reduce((t,e)=>t+e.amt,0)):''}</span></div>
     ${hx.length?hx.map(e=>`<button class="flex min-h-14 w-full items-center gap-3 border-b border-line px-4 py-2 text-left dark:border-teal-800/60" data-act="editexp" data-id="${esc(e.id)}">
-        <span class="size-2.5 flex-none rounded-full" style="background:${catColor(m,e.cat)}"></span>
-        <span class="min-w-0 flex-1 truncate">${esc(e.note||e.cat)}<span class="block text-[12.5px] ${MUTE}">${dayLabel(e.date)}, ${isFundExp(e)?'paid with house money':'paid by '+esc(houseName(e.paidBy))+(e.split.length===MEMBERS().length?', split between everyone':', split '+e.split.map(houseName).map(esc).join(', '))}</span></span>
+        <span class="size-2.5 flex-none rounded-full" style="background:${m.bills.some(b=>isFlex(b)&&b.label===e.cat)?'#0f766e':OTHER_COLOR}"></span>
+        <span class="min-w-0 flex-1 truncate">${esc(e.note||e.cat)}<span class="block text-[12.5px] ${MUTE}">${e.note&&e.cat!=='Other'?esc(e.cat)+', ':''}${dayLabel(e.date)}, ${isFundExp(e)?'paid with house money':'paid by '+esc(houseName(e.paidBy))+(e.split.length===MEMBERS().length?', split between everyone':', split '+e.split.map(houseName).map(esc).join(', '))}</span></span>
         <span class="text-right"><span class="block font-semibold tabular-nums">${fmt(e.amt)}</span>${myShare(e)?`<span class="block text-[12px] tabular-nums ${MUTE}">you ${fmt(Math.round(myShare(e)*100)/100)}</span>`:''}</span>${IC.chev}</button>`).join('')
       :empty('No shopping yet','Fish, vegetables, cleaning things… add them here.')}
     <button class="add-btn" data-act="addexp" data-scope="house">${IC.plus} Add shopping</button></section>`;
@@ -716,6 +730,7 @@ function openDlg(c){
   $('fname').classList.toggle('hidden',isSpend);
   $('lamt').textContent=isSpend?'Amount spent':isBud?'Planned amount':isSav?'Total saved now (balance)':'Amount';
   $('fadd').classList.toggle('hidden',!isSav); $('fext').classList.toggle('hidden',!isSav);
+  $('fflex').classList.toggle('hidden',L!=='bills'); $('iflex').checked=L==='bills'&&isFlex(x);
   $('iadd').value=isSav&&x.add?x.add:''; $('eadd').textContent=''; $('iadd').removeAttribute('aria-invalid'); $('iext').checked=!!x.ext;
   $('fwho').classList.toggle('hidden',!isSav); $('famt').classList.toggle('hidden',isAcct);
   $('fme').classList.toggle('hidden',L!=='gave'||isSpend); $('ime').checked=!!x.me;
@@ -776,6 +791,7 @@ $('dform').onsubmit=e=>{
     if(ctx.list==='budget'&&!ctx.item&&M().budget.some(b=>b.label===label)){$('elabel').textContent='You already have a category with this name.';$('ilabel').setAttribute('aria-invalid','true');$('ilabel').focus();return}
     x.label=label; x.amt=Math.round(amt*100)/100;
     if(ctx.list==='gave'){ if($('ime').checked) x.me=true; else delete x.me; }
+    if(ctx.list==='bills'){ if($('iflex').checked){ x.flex=true; x.done=false; } else x.flex=false; }
     if(DUE_LISTS.includes(ctx.list)){ if(rawDue) x.due=due; else delete x.due; }
     if(ctx.list==='savings'){x.who=str($('iwho').value)||'Other';x.cur=$('icur').value;x.add=money(addAmt);if(!x.add)x.done=false;if($('iext').checked)x.ext=true;else delete x.ext}
     if(!ctx.item) M()[ctx.list].push(x);
@@ -805,16 +821,22 @@ function openExp(c){
   ectx.scope=e.scope||c.scope||(spendMode==='house'&&tab==='spending'?'house':'me');
   if(ectx.scope==='house'&&!hasHouse()) ectx.scope='me';
   const hm=M(); ectx.paidBy=e.paidBy||(hm&&((hm.gave||[]).length||(hm.bills||[]).length)?'__fund':ME()); ectx.split=e.split&&e.split.length?[...e.split]:MEMBERS().map(p=>p.name);
+  ectx.cat=e.cat||c.cat||''; ectx.keepCat=!!(e.cat||c.cat);
   drawScope();
-  const cats=[...new Set([...(m.budget||[]).map(b=>b.label),...(c.item&&e.cat!=='Other'?[e.cat]:[]),'Other'])];
-  ectx.cat=e.cat||c.cat||(cats.length>1?'':'Other');
-  $('ecats').innerHTML=cats.map(k=>`<button type="button" class="${CHIP}" data-c="${esc(k)}" aria-pressed="${k===ectx.cat}"><span class="mr-1.5 inline-block size-2 rounded-full align-middle" style="background:${M()?catColor(M(),k):OTHER_COLOR}"></span>${esc(k)}</button>`).join('');
   $('eerr').textContent=''; $('ecerr').textContent=''; $('eamt2').removeAttribute('aria-invalid');
   $('edel').classList.toggle('hidden',!c.item);
   $('edlg').showModal(); setTimeout(()=>$('eamt2').focus(),60);
 }
+function drawCats(){
+  const m=M()||S.months[thisMonth]||{budget:[],bills:[]}, hs=ectx.scope==='house';
+  const base=hs?(m.bills||[]).filter(isFlex).map(b=>b.label):(m.budget||[]).map(b=>b.label);
+  const cats=[...new Set([...base,...(ectx.keepCat&&ectx.cat&&ectx.cat!=='Other'?[ectx.cat]:[]),'Other'])];
+  if(!cats.includes(ectx.cat)) ectx.cat=cats.length===1?'Other':'';
+  if(cats.length===2&&!ectx.cat) ectx.cat=cats[0];
+  $('ecats').innerHTML=cats.map(k=>`<button type="button" class="${CHIP}" data-c="${esc(k)}" aria-pressed="${k===ectx.cat}"><span class="mr-1.5 inline-block size-2 rounded-full align-middle" style="background:${hs?(k==='Other'?OTHER_COLOR:'#0f766e'):(M()?catColor(M(),k):OTHER_COLOR)}"></span>${esc(k)}</button>`).join('');
+}
 function drawScope(){
-  const hs=ectx.scope==='house';
+  const hs=ectx.scope==='house'; drawCats();
   $('escope').innerHTML=[['me','Personal'],['house','House']].map(([v,l])=>`<button type="button" role="radio" aria-checked="${ectx.scope===v}" data-s="${v}" class="min-h-10 rounded-full text-sm font-semibold text-[#4a6964] aria-checked:bg-teal-800 aria-checked:text-white dark:text-teal-200/70 dark:aria-checked:bg-reef dark:aria-checked:text-teal-950">${l}</button>`).join('');
   $('ehouse').classList.toggle('hidden',!hs); $('efund').classList.add('hidden');
   if(hs){
@@ -828,7 +850,7 @@ function drawScope(){
 }
 $('escope').onclick=e=>{const b=e.target.closest('[data-s]');if(!b)return;
   if(b.dataset.s==='house'&&!hasHouse()){ $('edlg').close(); openMembers(()=>openExp({scope:'house'})); return; }
-  ectx.scope=b.dataset.s; drawScope();};
+  ectx.scope=b.dataset.s; ectx.keepCat=false; ectx.cat=''; drawScope();};
 $('epaid').onclick=e=>{const b=e.target.closest('[data-p]');if(!b)return;ectx.paidBy=b.dataset.p;drawScope()};
 $('esplit').onclick=e=>{const b=e.target.closest('[data-sp]');if(!b)return;const n=b.dataset.sp;
   ectx.split=ectx.split.includes(n)?ectx.split.filter(x=>x!==n):[...ectx.split,n]; $('eserr').textContent=''; drawScope()};
@@ -1150,7 +1172,7 @@ document.addEventListener('click',async e=>{
   const a=t.dataset.act, list=t.dataset.list, id=t.dataset.id;
   if(a==='tog'){const x=M()[list].find(i=>i.id===id);x.done=!x.done;save();render();
     document.querySelector(`[data-act="tog"][data-id="${id}"]`)?.focus({preventScroll:true}); try{navigator.vibrate?.(8)}catch(_){} }
-  if(a==='all'){const undo=snapshot();const arr=M()[list];const v=!arr.every(x=>x.done);arr.forEach(x=>x.done=v);save();render();toast(v?'All ticked':'All unticked',undo)}
+  if(a==='all'){const undo=snapshot();const arr=M()[list].filter(x=>!(list==='bills'&&isFlex(x)));const v=!arr.every(x=>x.done);arr.forEach(x=>x.done=v);save();render();toast(v?'All ticked':'All unticked',undo)}
   if(a==='edit') openDlg({list,item:M()[list].find(i=>i.id===id)});
   if(a==='add') openDlg({list,who:t.dataset.who,label:t.dataset.label});
   if(a==='addexp') openExp({cat:t.dataset.cat,scope:t.dataset.scope});
@@ -1201,8 +1223,9 @@ function go(t){ let anchor=null; if(t==='household'||t==='bills') t='house'; if(
 document.querySelectorAll('#nav [data-tab]').forEach(b=>b.onclick=()=>go(b.dataset.tab));
 $('fab').onclick=()=>openExp({});
 let lastY=scrollY;
-addEventListener('scroll',()=>{const y=scrollY, f=$('fab'); if(Math.abs(y-lastY)<8) return;
-  f.dataset.away=String(y>lastY&&y>120); lastY=y;},{passive:true});
+let fabTimer=null;
+addEventListener('scroll',()=>{const y=scrollY, f=$('fab'); clearTimeout(fabTimer); fabTimer=setTimeout(()=>{f.dataset.away='false'},700);
+  if(Math.abs(y-lastY)<8) return; f.dataset.away=String(y>lastY&&y>120); lastY=y;},{passive:true});
 $('gear').onclick=()=>go('more');
 function togglePriv(){ PRIV=!PRIV; store.set(HIDE,PRIV?'1':'0'); render(); toast(PRIV?'Amounts hidden':'Amounts shown'); }
 $('eye').onclick=togglePriv;

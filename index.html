@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="tally-version" content="21">
+<meta name="tally-version" content="22">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -80,6 +80,9 @@
       <div class="err" id="eamt"></div></div>
     <div id="fadd" class="mt-3"><label for="iadd" class="label">Add each month</label>
       <input id="iadd" class="input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1000 (leave empty if none)"><div class="err" id="eadd"></div></div>
+    <label id="fflex" class="mt-3 flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-line px-3 py-2 dark:border-teal-700">
+      <input id="iflex" type="checkbox" class="size-5 flex-none accent-teal-700 dark:accent-emerald-400">
+      <span class="text-[15px]">Spend as you go<span class="block text-[12.5px] text-[#4a6964] dark:text-teal-200/70">For shared budgets like Food. Each purchase counts against it, no single payment to tick</span></span></label>
     <label id="fext" class="mt-3 flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-line px-3 py-2 dark:border-teal-700">
       <input id="iext" type="checkbox" class="size-5 flex-none accent-teal-700 dark:accent-emerald-400">
       <span class="text-[15px]">Not from my income<span class="block text-[12.5px] text-[#4a6964] dark:text-teal-200/70">Someone else pays this deposit, so Budget won’t deduct it</span></span></label>
