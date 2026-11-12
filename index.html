@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="tally-version" content="16">
+<meta name="tally-version" content="19">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -118,8 +118,14 @@
   <form id="eform" novalidate class="px-5 pt-2 pb-5 sm:pt-5">
     <div class="mx-auto mt-1 mb-3 h-1.5 w-10 rounded-full bg-line dark:bg-teal-700 sm:hidden" aria-hidden="true"></div>
     <h3 id="etitle" class="text-[22px] font-semibold tracking-tight">Add expense</h3>
+    <div id="escope" role="radiogroup" aria-label="Whose expense" class="mt-3 grid grid-cols-2 gap-1 rounded-full bg-mist p-1 dark:bg-teal-950"></div>
     <div class="mt-3"><label for="eamt2" class="label">Amount (MVR)</label>
       <input id="eamt2" class="input text-2xl font-bold tabular-nums" type="text" inputmode="decimal" autocomplete="off" placeholder="0" enterkeyhint="done"><div class="err" id="eerr"></div></div>
+    <p id="efund" class="mt-3 hidden rounded-2xl bg-mist px-3.5 py-2.5 text-sm text-teal-900/70 dark:bg-teal-950 dark:text-teal-200/80"></p>
+    <div id="ehouse" class="hidden">
+      <div class="mt-3"><span class="label">Paid by</span><div id="epaid" class="flex flex-wrap gap-1.5"></div></div>
+      <div class="mt-3"><span class="label">Split between <span id="eshare" class="font-normal"></span></span><div id="esplit" class="flex flex-wrap gap-1.5"></div><div class="err" id="eserr"></div></div>
+    </div>
     <div class="mt-3"><span class="label">Category</span><div id="ecats" class="flex flex-wrap gap-1.5"></div><div class="err" id="ecerr"></div></div>
     <div class="mt-3 grid grid-cols-[1fr_1.4fr] gap-2">
       <div><label for="edate" class="label">Date</label><input id="edate" type="date" class="input"></div>
@@ -168,6 +174,39 @@
     <div class="err" id="pwerr" role="alert"></div>
     <div class="mt-5 flex gap-2"><button type="button" class="btn flex-1" id="pwcancel">Cancel</button><button type="submit" class="btn btn-pri flex-[1.6]" id="pwgo">Save protected backup</button></div>
     <button type="button" id="pwplain" class="mt-3 w-full min-h-10 rounded-full text-sm font-semibold text-teal-900/55 hover:bg-mist dark:text-teal-200/70 dark:hover:bg-teal-800">Save without a password</button>
+  </form>
+</dialog>
+
+<dialog id="mdlg" aria-labelledby="mtitle2"
+  class="m-0 mt-auto w-full max-w-full rounded-t-[28px] bg-white p-0 pb-[env(safe-area-inset-bottom)] text-teal-950 open:animate-[up_.2s_ease-out] dark:bg-teal-900 dark:text-teal-50 sm:m-auto sm:w-[460px] sm:rounded-[28px] sm:pb-0">
+  <form id="mform" novalidate class="px-5 pt-2 pb-5 sm:pt-5">
+    <div class="mx-auto mt-1 mb-3 h-1.5 w-10 rounded-full bg-line dark:bg-teal-700 sm:hidden" aria-hidden="true"></div>
+    <h3 id="mtitle2" class="text-[22px] font-semibold tracking-tight">Your household</h3>
+    <p class="mt-1 text-sm text-teal-900/55 dark:text-teal-200/70">Everyone who shares household costs. Mark which one is you.</p>
+    <div id="mmode" role="radiogroup" aria-label="How you share" class="mt-3 grid grid-cols-2 gap-1 rounded-full bg-mist p-1 dark:bg-teal-950"></div>
+    <p id="mmodehint" class="mt-1.5 text-[13px] text-teal-900/55 dark:text-teal-200/70"></p>
+    <div id="mlist" class="mt-3 grid gap-2"></div>
+    <button type="button" id="madd" class="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line text-sm font-semibold text-teal-700 hover:bg-mist dark:border-teal-700 dark:text-reef dark:hover:bg-teal-800"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add person</button>
+    <div id="mmgrwrap" class="mt-4 hidden"><span class="label">Who manages the fund</span><div id="mmgr" class="flex flex-wrap gap-1.5"></div></div>
+    <div class="mt-4"><label for="mplan" id="lplan" class="label">Household budget this month (optional)</label>
+      <input id="mplan" class="input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 4000 for shared food"></div>
+    <div class="err" id="merr" role="alert"></div>
+    <div class="mt-5 flex gap-2"><button type="button" class="btn flex-1" id="mcancel">Cancel</button><button type="submit" class="btn btn-pri flex-1">Save</button></div>
+  </form>
+</dialog>
+
+<dialog id="fdlg" aria-labelledby="ftitle"
+  class="m-0 mt-auto w-full max-w-full rounded-t-[28px] bg-white p-0 pb-[env(safe-area-inset-bottom)] text-teal-950 open:animate-[up_.2s_ease-out] dark:bg-teal-900 dark:text-teal-50 sm:m-auto sm:w-[440px] sm:rounded-[28px] sm:pb-0">
+  <form id="fform" novalidate class="px-5 pt-2 pb-5 sm:pt-5">
+    <div class="mx-auto mt-1 mb-3 h-1.5 w-10 rounded-full bg-line dark:bg-teal-700 sm:hidden" aria-hidden="true"></div>
+    <h3 id="ftitle" class="text-[22px] font-semibold tracking-tight">Pay into the fund</h3>
+    <div class="mt-3"><span class="label">From</span><div id="fifrom" class="flex flex-wrap gap-1.5"></div></div>
+    <div class="mt-3 grid grid-cols-[1.3fr_1fr] gap-2">
+      <div><label for="fiamt" class="label">Amount (MVR)</label><input id="fiamt" class="input text-xl font-bold tabular-nums" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+      <div><label for="fidate" class="label">Date</label><input id="fidate" class="input" type="date"></div>
+    </div>
+    <div class="err" id="fierr" role="alert"></div>
+    <div class="mt-5 flex gap-2"><button type="button" class="btn flex-1" id="fcancel">Cancel</button><button type="submit" class="btn btn-pri flex-1">Add to fund</button></div>
   </form>
 </dialog>
 

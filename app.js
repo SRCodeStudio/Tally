@@ -1,6 +1,6 @@
 /* Version check: index.html and app.js must come from the same update */
 (function(){const m=document.querySelector('meta[name="tally-version"]');
-  if(!m||m.content!=='16'){document.body.innerHTML='<div style="font:16px/1.5 system-ui;padding:32px 24px;max-width:480px;margin:auto"><h2 style="margin:0 0 8px">Update incomplete</h2><p>Some Tally files are from an older version. Upload <b>all files</b> from the latest tally.zip to GitHub, then reopen the app.</p><p style="opacity:.7">Your saved data is safe.</p></div>';throw new Error('Tally version mismatch');}})();
+  if(!m||m.content!=='19'){document.body.innerHTML='<div style="font:16px/1.5 system-ui;padding:32px 24px;max-width:480px;margin:auto"><h2 style="margin:0 0 8px">Update incomplete</h2><p>Some Tally files are from an older version. Upload <b>all files</b> from the latest tally.zip to GitHub, then reopen the app.</p><p style="opacity:.7">Your saved data is safe.</p></div>';throw new Error('Tally version mismatch');}})();
 /* ================= Data ================= */
 const KEY='family-budget-v1', THEME='family-budget-theme', BKP='family-budget-lastbackup';
 const store={get(k){try{return localStorage.getItem(k)}catch(_){return null}},set(k,v){try{localStorage.setItem(k,v);return true}catch(_){return false}}};
@@ -26,7 +26,17 @@ function cleanExpense(x,monthKey){
   if(!x||typeof x!=='object') return null;
   const amt=money(x.amt); if(!(amt>0)) return null;
   const date=typeof x.date==='string'&&DATE_RE.test(x.date)&&x.date.slice(0,7)===monthKey?x.date:monthKey+'-01';
-  return {id:newId(),date,amt,cat:str(x.cat)||'Other',note:str(x.note)};
+  const o={id:newId(),date,amt,cat:str(x.cat)||'Other',note:str(x.note)};
+  if(x.scope==='house'){ o.scope='house'; o.paidBy=str(x.paidBy)||'You';
+    o.split=[...new Set((Array.isArray(x.split)?x.split:[]).slice(0,12).map(v=>str(v)).filter(Boolean))];
+    if(o.paidBy==='__fund') o.split=[]; else if(!o.split.length) o.split=[o.paidBy]; }
+  return o;
+}
+function cleanSettle(x,monthKey){
+  if(!x||typeof x!=='object') return null; const amt=money(x.amt); if(!(amt>0)) return null;
+  const from=str(x.from), to=str(x.to); if(!from||!to||from===to) return null;
+  const date=typeof x.date==='string'&&DATE_RE.test(x.date)&&x.date.slice(0,7)===monthKey?x.date:monthKey+'-01';
+  return {id:newId(),date,from,to,amt};
 }
 function cleanData(d){
   const out={months:{},accounts:[]};
@@ -37,6 +47,10 @@ function cleanData(d){
     const m=months[k]||{}, mo={};
     for(const l of LIST_KEYS) mo[l]=(Array.isArray(m[l])?m[l]:[]).slice(0,500).map(x=>cleanItem(x,l)).filter(Boolean);
     mo.expenses=(Array.isArray(m.expenses)?m.expenses:[]).slice(0,3000).map(x=>cleanExpense(x,k)).filter(Boolean);
+    mo.settles=(Array.isArray(m.settles)?m.settles:[]).slice(0,500).map(x=>cleanSettle(x,k)).filter(Boolean);
+    mo.housePlan=money(m.housePlan);
+    mo.fundIns=(Array.isArray(m.fundIns)?m.fundIns:[]).slice(0,500).map(x=>{ if(!x||typeof x!=='object') return null; const amt=money(x.amt), from=str(x.from); if(!(amt>0)||!from) return null;
+      const date=typeof x.date==='string'&&DATE_RE.test(x.date)&&x.date.slice(0,7)===k?x.date:k+'-01'; return {id:newId(),date,from,amt}; }).filter(Boolean);
     // Migrate old "spent so far" totals into one expense each
     for(const b of mo.budget){ if(b.spent>0){ mo.expenses.push({id:newId(),date:k+'-01',amt:b.spent,cat:b.label,note:'Earlier spending'}); } delete b.spent; }
     out.months[k]=mo;
@@ -45,6 +59,14 @@ function cleanData(d){
     const label=str(a&&a.label); if(!label) return null;
     return {id:newId(),label,bank:str(a.bank,30),acct:str(String(a.acct??''),20).replace(/\D/g,'').slice(-4)};
   }).filter(Boolean);
+  // Household members (shared across months). Exactly one may be "me".
+  const seen=new Set(); let meSet=false;
+  out.members=(Array.isArray(d.members)?d.members:[]).slice(0,12).map(p=>{
+    const name=str(p&&p.name,30); if(!name||seen.has(name.toLowerCase())) return null; seen.add(name.toLowerCase());
+    const me=p.me===true&&!meSet; if(me) meSet=true; return me?{name,me:true}:{name};
+  }).filter(Boolean);
+  out.houseMode=d.houseMode==='fund'?'fund':'split';
+  const mg=str(d.fundManager,30); out.fundManager=out.members.some(p=>p.name===mg)?mg:((out.members[0]||{}).name||'');
   return out;
 }
 /* ================= Encryption (Web Crypto: PBKDF2-SHA256 → AES-256-GCM) ================= */
@@ -71,13 +93,43 @@ let PRIV=store.get(HIDE)==='1';
 const LISTS={income:'Income',budget:'Budget',savings:'Savings',fixed:'Fixed expenses',bills:'House bills',gave:'Contributions'};
 const NOUN={income:'income',budget:'spending category',savings:'saving',fixed:'expense',bills:'bill',gave:'person',accounts:'account'};
 const TABS=['home','budget','spending','savings','bills','more'];
-const EMPTY_MONTH=()=>({income:[],budget:[],savings:[],fixed:[],bills:[],gave:[],expenses:[]});
+const EMPTY_MONTH=()=>({income:[],budget:[],savings:[],fixed:[],bills:[],gave:[],expenses:[],settles:[],housePlan:0,fundIns:[]});
 const OTHER_COLOR='#78716c';
 const pad=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const todayStr=()=>ymd(new Date());
 function catColor(m,label){const i=m.budget.findIndex(b=>b.label===label);return i<0?OTHER_COLOR:PALETTE[(i+2)%PALETTE.length]}
-function spentOn(m,label){return m.expenses.filter(e=>e.cat===label).reduce((t,e)=>t+e.amt,0)}
+const isHouse=e=>e.scope==='house';
+function spentOn(m,label){return m.expenses.filter(e=>!isHouse(e)&&e.cat===label).reduce((t,e)=>t+e.amt,0)}
+/* ---------- Household ---------- */
+const MEMBERS=()=>S.members||[];
+const ME=()=>(MEMBERS().find(p=>p.me)||{}).name||'You';
+const hasHouse=()=>MEMBERS().length>=2;
+const myShare=e=>isHouse(e)&&e.split.includes(ME())?e.amt/e.split.length:0;
+const houseName=n=>n==='__fund'?'the fund':n===ME()?'You':n;
+const FUND=()=>S.houseMode==='fund'&&hasHouse();
+const isFundExp=e=>isHouse(e)&&e.paidBy==='__fund';
+const FUND_MGR=()=>MEMBERS().some(p=>p.name===S.fundManager)?S.fundManager:(MEMBERS()[0]||{}).name;
+function fundBalance(upTo=cur){ let b=0; for(const k of Object.keys(S.months)){ if(k>upTo) continue; const m=S.months[k];
+  b+=(m.fundIns||[]).reduce((t,x)=>t+x.amt,0); b-=m.expenses.filter(isFundExp).reduce((t,e)=>t+e.amt,0); } return Math.round(b*100)/100; }
+// Net balance per person across all months: positive = others owe them
+function balances(){
+  const net={}; MEMBERS().forEach(p=>net[p.name]=0);
+  for(const k of Object.keys(S.months)){ const m=S.months[k];
+    for(const e of m.expenses) if(isHouse(e)&&!isFundExp(e)){ net[e.paidBy]=(net[e.paidBy]||0)+e.amt; const sh=e.amt/e.split.length; e.split.forEach(n=>net[n]=(net[n]||0)-sh); }
+    for(const t of (m.settles||[])){ net[t.from]=(net[t.from]||0)+t.amt; net[t.to]=(net[t.to]||0)-t.amt; } }
+  for(const n in net) net[n]=Math.round(net[n]*100)/100;
+  return net;
+}
+// Fewest payments to settle everyone up
+function settlements(net){
+  const cr=Object.entries(net).filter(([,v])=>v>0.004).map(([n,v])=>[n,v]).sort((a,b)=>b[1]-a[1]);
+  const db=Object.entries(net).filter(([,v])=>v<-0.004).map(([n,v])=>[n,-v]).sort((a,b)=>b[1]-a[1]);
+  const out=[]; let i=0,j=0;
+  while(i<db.length&&j<cr.length){ const a=Math.min(db[i][1],cr[j][1]); out.push({from:db[i][0],to:cr[j][0],amt:Math.round(a*100)/100});
+    db[i][1]-=a; cr[j][1]-=a; if(db[i][1]<0.005) i++; if(cr[j][1]<0.005) j++; }
+  return out;
+}
 function dayLabel(ds){const t=todayStr(), y=ymd(new Date(Date.now()-864e5));
   if(ds===t) return 'Today'; if(ds===y) return 'Yesterday';
   const[a,b,c]=ds.split('-').map(Number); return new Date(a,b-1,c).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});}
@@ -160,14 +212,19 @@ function totals(m){
   const dep=m.savings.filter(x=>savActive(x)&&!x.ext);
   const sav=dep.filter(x=>x.cur!=='USD').reduce((t,x)=>t+x.add,0), usd=dep.filter(x=>x.cur==='USD').reduce((t,x)=>t+x.add,0);
   const balMvr=m.savings.filter(x=>x.cur!=='USD').reduce((t,x)=>t+savBal(x),0), balUsd=m.savings.filter(x=>x.cur==='USD').reduce((t,x)=>t+savBal(x),0);
-  const fix=sum(m.fixed), plan=sum(m.budget), spent=m.expenses.reduce((t,e)=>t+e.amt,0);
+  const pers=m.expenses.filter(e=>!isHouse(e)), hx=m.expenses.filter(isHouse);
+  const houseSpent=hx.reduce((t,e)=>t+e.amt,0), houseMine=hx.reduce((t,e)=>t+myShare(e),0);
+  const housePlanMine=hasHouse()&&MEMBERS().some(p=>p.me)?(Number(m.housePlan)||0)/MEMBERS().length:0;
+  const myIns=(m.fundIns||[]).filter(x=>x.from===ME()).reduce((t,x)=>t+x.amt,0);
+  const houseUse=FUND()?Math.max(housePlanMine,myIns)+houseMine:Math.max(housePlanMine,houseMine);
+  const fix=sum(m.fixed), plan=sum(m.budget), persSpent=pers.reduce((t,e)=>t+e.amt,0), spent=persSpent+houseMine;
   const myGave=m.gave.filter(x=>x.me), house=sum(myGave), houseSet=myGave.length>0;
   // Each category counts as its plan, or what was actually spent if more. Unplanned spending also counts.
   const labels=new Set(m.budget.map(b=>b.label));
   const catUse=m.budget.reduce((t,b)=>t+Math.max(Number(b.amt)||0,spentOn(m,b.label)),0);
-  const unplanned=m.expenses.filter(e=>!labels.has(e.cat)).reduce((t,e)=>t+e.amt,0);
-  const alloc=sav+fix+house+catUse+unplanned;
-  return {inc,incGot,sav,usd,balMvr,balUsd,fix,house,houseSet,myGave,plan,spent,unplanned,alloc,left:Math.round((inc-alloc)*100)/100};
+  const unplanned=pers.filter(e=>!labels.has(e.cat)).reduce((t,e)=>t+e.amt,0);
+  const alloc=sav+fix+house+catUse+unplanned+houseUse;
+  return {inc,incGot,sav,usd,balMvr,balUsd,fix,house,houseSet,myGave,plan,spent,persSpent,houseSpent,houseMine,housePlanMine,houseUse,myIns,unplanned,alloc,left:Math.round((inc-alloc)*100)/100};
 }
 function renderNoMonth(){
   const prev=Object.keys(S.months).filter(k=>k<cur).sort().pop();
@@ -224,7 +281,7 @@ function tallyMarks(done,total,animate){
 function hero(m,T,done,total){
   const animate=!heroPlayed&&tab==='home'&&!matchMedia('(prefers-reduced-motion: reduce)').matches; heroPlayed=true;
   const left=T.left, neg=left<0;
-  const todaySpent=cur===thisMonth?m.expenses.filter(e=>e.date===todayStr()).reduce((t,e)=>t+e.amt,0):null;
+  const todaySpent=cur===thisMonth?m.expenses.filter(e=>e.date===todayStr()).reduce((t,e)=>t+(isHouse(e)?myShare(e):e.amt),0):null;
   const stat=(l,v,go)=>`<button class="min-w-0 rounded-2xl bg-white/[.07] px-2.5 py-2.5 sm:px-3 text-left hover:bg-white/[.12]" data-act="go" data-to="${go}"><span class="block truncate text-[12.5px] text-teal-100/70">${l}</span><span class="block truncate text-[13.5px] font-semibold tracking-tight tabular-nums sm:text-base">${v}</span></button>`;
   return `<section class="mb-4 rounded-[30px] bg-lagoon px-5 pt-5 pb-5 text-white shadow-[0_24px_50px_-28px_rgba(6,48,43,.9)] ring-1 ring-white/5 md:px-7 md:pt-6 dark:bg-lagoon-2/60">
     <div class="flex items-start justify-between gap-3">
@@ -314,7 +371,8 @@ function renderBudget(m){
   const segs=[{l:'Savings deposits',v:T.sav,c:'#0f766e',go:'savings'},{l:'Fixed expenses',v:T.fix,c:'#0369a1',go:'bills'}]
     .concat(T.houseSet?[{l:'My house share',v:T.house,c:'#b45309',go:'bills'}]:[])
     .concat(m.budget.map((x,i)=>({l:x.label,v:Math.max(Number(x.amt)||0,spentOn(m,x.label)),c:PALETTE[(i+2)%PALETTE.length]})))
-    .concat(T.unplanned?[{l:'Unplanned spending',v:T.unplanned,c:OTHER_COLOR}]:[]);
+    .concat(T.unplanned?[{l:'Unplanned spending',v:T.unplanned,c:OTHER_COLOR}]:[])
+    .concat(T.houseUse?[{l:FUND()?'Household fund':'Household share',v:T.houseUse,c:'#a16207'}]:[]);
   const base=Math.max(T.inc,T.alloc)||1;
   h+=`<section class="card"><div class="card-h"><h3 class="card-t">Where it goes</h3><span class="meta tabular-nums">${T.inc?pct(T.alloc,T.inc)+'% of income':''}</span></div>
     <div class="px-4 pt-4"><div class="flex h-4 overflow-hidden rounded-full bg-mist dark:bg-teal-950" role="img" aria-label="Budget split">${segs.filter(g=>g.v>0).map(g=>`<div style="width:${g.v/base*100}%;background:${g.c}" title="${esc(g.l)}"></div>`).join('')}</div></div>
@@ -325,6 +383,8 @@ function renderBudget(m){
   // Plan
   h+=`<section class="card"><div class="card-h"><h3 class="card-t">Plan</h3><span class="meta">tap + to add an expense</span></div>
     ${(()=>{const n=m.savings.filter(x=>savActive(x)&&!x.ext).length;return linkRow('Savings deposits',T.sav,T.inc,'savings',n?`${n} deposit${n===1?'':'s'} this month, from Savings tab`:'No deposits set. Balances are not deducted')})()}
+    ${hasHouse()?(FUND()?linkRow('Household fund',T.houseUse,T.inc,'household',`You paid in ${fmt(T.myIns)}${T.housePlanMine?` of ${fmt(T.housePlanMine)}`:''}`)
+      :linkRow('Household share',T.houseUse,T.inc,'household',`Your part of ${fmt(T.houseSpent)} shared spending${T.housePlanMine?`, plan ${fmt(T.housePlanMine)}`:''}`)):''}
     ${linkRow('Fixed expenses',T.fix,T.inc,'bills',`${m.fixed.length} item${m.fixed.length===1?'':'s'} · from Bills tab`)}
     ${T.houseSet?linkRow('My house share',T.house,T.inc,'bills',`Only your part of ${fmt(sum(m.bills))} shared bills`)
       :m.gave.length?`<div class="border-b border-line px-4 dark:border-teal-800/60"><button class="flex min-h-14 w-full items-center gap-2.5 py-2 text-left" data-act="pickme">
@@ -340,22 +400,28 @@ function renderBudget(m){
     ${addBtn('budget')}</section>`;
   return h;
 }
+let spendMode='me';
+function modeSwitch(){
+  return `<div class="mb-4 grid grid-cols-2 gap-1 rounded-full bg-white p-1 ring-1 ring-line dark:bg-teal-900/50 dark:ring-teal-800/70" role="tablist" aria-label="Whose spending">
+    ${[['me','Personal'],['house','Household']].map(([v,l])=>`<button role="tab" aria-selected="${spendMode===v}" data-act="mode" data-v="${v}" class="min-h-10 rounded-full text-[14.5px] font-semibold text-teal-900/60 aria-selected:bg-teal-800 aria-selected:text-white dark:text-teal-200/70 dark:aria-selected:bg-reef dark:aria-selected:text-teal-950">${l}</button>`).join('')}</div>`;
+}
 function renderSpending(m){
-  const T=totals(m), ex=m.expenses;
+  if(spendMode==='house') return renderHousehold(m);
+  const T=totals(m), ex=m.expenses.filter(e=>!isHouse(e));
   const today=todayStr(), wk=ymd(new Date(Date.now()-6*864e5));
   const isNow=cur===thisMonth;
   const todayAmt=ex.filter(e=>e.date===today).reduce((t,e)=>t+e.amt,0);
   const weekAmt=ex.filter(e=>e.date>=wk&&e.date<=today).reduce((t,e)=>t+e.amt,0);
   const [y,mo]=cur.split('-').map(Number), dim=new Date(y,mo,0).getDate();
   const daysSoFar=isNow?new Date().getDate():dim;
-  let h=pageHead('Spending',ex.length?`${ex.length} expense${ex.length===1?'':'s'} in ${MN[mo-1]}`:'Every rufiyaa you spend, day by day');
+  let h=pageHead('Spending',ex.length?`${ex.length} personal expense${ex.length===1?'':'s'} in ${MN[mo-1]}`:'Every rufiyaa you spend, day by day')+modeSwitch();
   h+=`<div class="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
     ${isNow?statBox('Today',fmt(todayAmt)):''}
     ${isNow?statBox('Last 7 days',fmt(weekAmt)):''}
-    ${statBox('This month',fmt(T.spent),T.plan?`of ${fmt(T.plan)} planned`:'')}
-    ${statBox('Daily average',fmt(Math.round(T.spent/Math.max(1,daysSoFar))),`over ${daysSoFar} day${daysSoFar===1?'':'s'}`)}
+    ${statBox('This month',fmt(T.persSpent),T.plan?`of ${fmt(T.plan)} planned`:'')}
+    ${statBox('Daily average',fmt(Math.round(T.persSpent/Math.max(1,daysSoFar))),`over ${daysSoFar} day${daysSoFar===1?'':'s'}`)}
   </div>`;
-  if(!ex.length) return h+`<div class="card">${empty('No expenses yet','Tap “+ Expense” whenever you spend: groceries, fuel, a coffee. It takes 3 seconds.')}
+  if(!ex.length) return h+`<div class="card">${empty('No personal expenses yet','Tap “+ Expense” whenever you spend: a coffee, fuel, a phone top-up. Shared shopping goes under Household.')}
     <div class="px-4 pb-4"><button class="btn btn-pri w-full" data-act="addexp">${IC.plus} Add first expense</button></div></div>`;
   // category filter chips
   const cats=[...new Set([...m.budget.map(b=>b.label),...ex.map(e=>e.cat)])].filter(c=>ex.some(e=>e.cat===c));
@@ -373,6 +439,84 @@ function renderSpending(m){
         <span class="size-2.5 flex-none rounded-full" style="background:${catColor(m,e.cat)}"></span>
         <span class="min-w-0 flex-1 truncate">${esc(e.note||e.cat)}${e.note?`<span class="block text-[12.5px] ${MUTE}">${esc(e.cat)}</span>`:''}</span>
         <span class="font-semibold tabular-nums">${fmt(e.amt)}</span>${IC.chev}</button>`).join('')}</section>`}).join('');
+  return h;
+}
+function renderHousehold(m){
+  if(FUND()) return renderFund(m);
+  let h=pageHead('Household','Shared spending with the people you live with')+modeSwitch();
+  if(!hasHouse()) return h+`<div class="card">${empty('Share expenses with housemates','Add the people you live with. Then each shared purchase is split, and Tally shows who owes whom.')}
+    <div class="px-4 pb-4"><button class="btn btn-pri w-full" data-act="members">${IC.plus} Set up household</button></div></div>`;
+  const T=totals(m), hx=m.expenses.filter(isHouse), plan=Number(m.housePlan)||0;
+  h+=`<div class="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+    ${statBox('Shared this month',fmt(T.houseSpent),plan?`of ${fmt(plan)} budget`:`${hx.length} purchase${hx.length===1?'':'s'}`)}
+    ${statBox('Your share',fmt(T.houseMine),`${MEMBERS().length} people`)}
+  </div>`;
+  if(plan){ const p=pct(T.houseSpent,plan), over=T.houseSpent>plan;
+    h+=`<div class="mb-4 -mt-1 px-1"><div class="h-2 overflow-hidden rounded-full bg-white ring-1 ring-line dark:bg-teal-950 dark:ring-teal-800/60"><div class="h-full rounded-full ${over?'bg-red-500 dark:bg-red-400':'bg-teal-700 dark:bg-reef'}" style="width:${Math.min(100,p)}%"></div></div>
+      <p class="mt-1.5 text-[13px] ${over?'font-semibold text-red-700 dark:text-red-300':MUTE}">${over?`${fmt(T.houseSpent-plan)} over the household budget`:`${fmt(plan-T.houseSpent)} left in the household budget`}</p></div>`; }
+  // balances (all time)
+  const net=balances(), plan2=settlements(net);
+  h+=`<section class="card"><div class="card-h"><h3 class="card-t">Balances</h3><button class="link-btn" data-act="members">Edit people</button></div>
+    ${MEMBERS().map(p=>{const v=net[p.name]||0;return `<div class="flex min-h-12 items-center gap-3 border-b border-line px-4 py-2 dark:border-teal-800/60">
+      <span class="grid size-8 flex-none place-items-center rounded-full bg-teal-100 text-[13px] font-bold text-teal-800 dark:bg-teal-800 dark:text-reef">${esc(p.name.slice(0,1).toUpperCase())}</span>
+      <span class="flex-1">${esc(houseName(p.name))}</span>
+      <span class="text-sm font-semibold tabular-nums ${v>0.004?'text-teal-700 dark:text-reef':v<-0.004?'text-red-700 dark:text-red-300':MUTE}">${v>0.004?'gets back '+fmt(v):v<-0.004?'owes '+fmt(-v):'settled'}</span></div>`}).join('')}
+    ${plan2.length?`<div class="px-4 pt-3 pb-1 text-[13px] font-semibold ${MUTE}">To settle up</div>${plan2.map(t=>`<div class="flex min-h-14 items-center gap-3 px-4 py-2">
+      <span class="flex-1"><b class="font-semibold">${esc(houseName(t.from))}</b> pay${t.from===ME()?'':'s'} <b class="font-semibold">${esc(houseName(t.to))}</b><span class="block text-sm tabular-nums ${MUTE}">${fmt(t.amt)}</span></span>
+      <button class="btn min-h-10 px-4" data-act="settle" data-from="${esc(t.from)}" data-to="${esc(t.to)}" data-amt="${t.amt}">Settle</button></div>`).join('')}`
+      :`<p class="px-4 py-3 text-sm ${MUTE}">Everyone is settled up.</p>`}
+  </section>`;
+  if(!hx.length&&!(m.settles||[]).length) return h+`<div class="card">${empty('No shared purchases this month','Tap “+ Expense” and choose Household. Pick who paid and who shares it.')}
+    <div class="px-4 pb-4"><button class="btn btn-pri w-full" data-act="addexp" data-scope="house">${IC.plus} Add shared expense</button></div></div>`;
+  const items=[...hx.map(e=>({k:'e',d:e.date,e})),...(m.settles||[]).map(t=>({k:'s',d:t.date,t}))].sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
+  const days=[...new Set(items.map(i=>i.d))];
+  h+=days.map(d=>{const its=items.filter(i=>i.d===d), dt=its.filter(i=>i.k==='e').reduce((t,i)=>t+i.e.amt,0);
+    return `<section class="card"><div class="card-h py-2.5"><h3 class="text-sm font-bold">${dayLabel(d)}</h3><span class="text-sm font-semibold tabular-nums">${dt?fmt(dt):''}</span></div>
+      ${its.map(i=>i.k==='e'?`<button class="flex min-h-14 w-full items-center gap-3 border-b border-line px-4 py-2 text-left last:border-b-0 dark:border-teal-800/60" data-act="editexp" data-id="${esc(i.e.id)}" aria-label="Edit ${esc(i.e.note||i.e.cat)}">
+        <span class="size-2.5 flex-none rounded-full" style="background:${catColor(m,i.e.cat)}"></span>
+        <span class="min-w-0 flex-1 truncate">${esc(i.e.note||i.e.cat)}<span class="block text-[12.5px] ${MUTE}">Paid by ${esc(houseName(i.e.paidBy))}, split ${i.e.split.length===MEMBERS().length?'between everyone':i.e.split.map(houseName).map(esc).join(', ')}</span></span>
+        <span class="text-right"><span class="block font-semibold tabular-nums">${fmt(i.e.amt)}</span>${myShare(i.e)?`<span class="block text-[12px] tabular-nums ${MUTE}">you ${fmt(Math.round(myShare(i.e)*100)/100)}</span>`:''}</span>${IC.chev}</button>`
+      :`<div class="flex min-h-12 items-center gap-3 border-b border-line px-4 py-2 last:border-b-0 dark:border-teal-800/60">
+        <span class="grid size-2.5 flex-none place-items-center"></span><span class="flex-1 text-sm">${esc(houseName(i.t.from))} paid ${esc(houseName(i.t.to))}<span class="block text-[12.5px] ${MUTE}">Settled up</span></span>
+        <span class="text-sm font-semibold tabular-nums ${MUTE}">${fmt(i.t.amt)}</span>
+        <button class="grid size-9 place-items-center rounded-full ${MUTE} hover:bg-mist dark:hover:bg-teal-800" data-act="unsettle" data-id="${esc(i.t.id)}" aria-label="Remove this settlement"><svg class="icon size-4" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join('')}</section>`}).join('');
+  return h;
+}
+function renderFund(m){
+  const T=totals(m), mgr=FUND_MGR(), n=MEMBERS().length, target=Number(m.housePlan)||0, each=target?Math.round(target/n*100)/100:0;
+  const ins=m.fundIns||[], collected=ins.reduce((t,x)=>t+x.amt,0), fx=m.expenses.filter(isFundExp), spent=fx.reduce((t,e)=>t+e.amt,0);
+  const bal=fundBalance(cur), carried=Math.round((bal-collected+spent)*100)/100;
+  let h=pageHead('Household fund',`Managed by ${esc(houseName(mgr))}`)+modeSwitch();
+  h+=`<section class="mb-4 rounded-[26px] bg-lagoon px-5 py-4 text-white dark:bg-lagoon-2/60">
+    <p class="text-sm text-teal-100/75">${bal<0?'Fund is short by':'In the fund now'}</p>
+    <p class="display mt-0.5 text-[36px] leading-none font-semibold tracking-tight tabular-nums ${bal<0?'text-red-200':''}">${bigNum(Math.abs(bal))}<span class="ml-1 text-lg font-medium text-teal-100/60">MVR</span></p>
+    <div class="mt-4 grid grid-cols-3 gap-2 text-left">
+      ${[['Collected',fmt(collected)],['Spent',fmt(spent)],['Carried over',fmt(carried)]].map(([l,v])=>`<div class="min-w-0 rounded-2xl bg-white/[.07] px-2.5 py-2"><span class="block truncate text-[12px] text-teal-100/70">${l}</span><span class="block truncate text-[13.5px] font-semibold tabular-nums">${v}</span></div>`).join('')}
+    </div></section>`;
+  // contributions this month
+  h+=`<section class="card"><div class="card-h"><h3 class="card-t">Paid in this month</h3><button class="link-btn" data-act="members">${target?`Target ${fmt(each)} each`:'Set target'}</button></div>
+    ${MEMBERS().map(p=>{const paid=ins.filter(x=>x.from===p.name).reduce((t,x)=>t+x.amt,0), due=each?Math.max(0,each-paid):0, done=each?paid>=each-0.004:paid>0;
+      return `<div class="flex min-h-14 items-center gap-3 border-b border-line px-4 py-2 dark:border-teal-800/60">
+        <span class="grid size-8 flex-none place-items-center rounded-full ${done?'bg-teal-700 text-white dark:bg-reef dark:text-teal-950':'bg-teal-100 text-teal-800 dark:bg-teal-800 dark:text-reef'} text-[13px] font-bold">${done?'✓':esc(p.name.slice(0,1).toUpperCase())}</span>
+        <span class="min-w-0 flex-1">${esc(houseName(p.name))}${p.name===mgr?` <span class="tag tag-ok ml-1">Manager</span>`:''}<span class="block text-[12.5px] tabular-nums ${due&&!done?'font-semibold text-amber-700 dark:text-amber-300':MUTE}">${fmt(paid)} paid${each?(done?'':`, ${fmt(due)} to go`):''}</span></span>
+        <button class="btn min-h-10 px-4" data-act="fundin" data-from="${esc(p.name)}" data-amt="${due||''}">${IC.plus} Add</button></div>`}).join('')}
+  </section>`;
+  const items=[...fx.map(e=>({k:'e',d:e.date,e})),...ins.map(x=>({k:'i',d:x.date,x})),...m.expenses.filter(e=>isHouse(e)&&!isFundExp(e)).map(e=>({k:'e',d:e.date,e}))]
+    .sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
+  if(!items.length) return h+`<div class="card">${empty('Nothing in the fund yet','Record what each person pays in, then add shared purchases with “+ Expense” → Household.')}</div>`;
+  const days=[...new Set(items.map(i=>i.d))];
+  h+=`<h3 class="mx-1 mt-6 mb-3 text-lg font-semibold tracking-tight">Activity</h3>`;
+  h+=days.map(d=>{const its=items.filter(i=>i.d===d);
+    return `<section class="card"><div class="card-h py-2.5"><h3 class="text-sm font-bold">${dayLabel(d)}</h3></div>
+      ${its.map(i=>i.k==='e'?`<button class="flex min-h-14 w-full items-center gap-3 border-b border-line px-4 py-2 text-left last:border-b-0 dark:border-teal-800/60" data-act="editexp" data-id="${esc(i.e.id)}" aria-label="Edit ${esc(i.e.note||i.e.cat)}">
+          <span class="size-2.5 flex-none rounded-full" style="background:${catColor(m,i.e.cat)}"></span>
+          <span class="min-w-0 flex-1 truncate">${esc(i.e.note||i.e.cat)}<span class="block text-[12.5px] ${MUTE}">${isFundExp(i.e)?'Paid from the fund':'Paid by '+esc(houseName(i.e.paidBy))}</span></span>
+          <span class="font-semibold tabular-nums">−${fmt(i.e.amt)}</span>${IC.chev}</button>`
+        :`<div class="flex min-h-14 items-center gap-3 border-b border-line px-4 py-2 last:border-b-0 dark:border-teal-800/60">
+          <span class="size-2.5 flex-none rounded-full bg-teal-600 dark:bg-reef"></span>
+          <span class="min-w-0 flex-1">From ${esc(houseName(i.x.from))}<span class="block text-[12.5px] ${MUTE}">Paid into the fund</span></span>
+          <span class="font-semibold tabular-nums text-teal-700 dark:text-reef">+${fmt(i.x.amt)}</span>
+          <button class="grid size-9 place-items-center rounded-full ${MUTE} hover:bg-mist dark:hover:bg-teal-800" data-act="unfund" data-id="${esc(i.x.id)}" aria-label="Remove this payment"><svg class="icon size-4" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join('')}</section>`}).join('');
   return h;
 }
 function statBox(l,v,s=''){return `<div class="rounded-[22px] border border-line bg-white px-4 py-3.5 shadow-sm dark:border-teal-800/50 dark:bg-teal-900/35 dark:shadow-none"><div class="text-[13px] font-semibold ${MUTE}">${l}</div><div class="display mt-0.5 text-[22px] font-semibold tracking-tight tabular-nums">${v}</div>${s?`<div class="mt-0.5 text-[12.5px] ${MUTE}">${s}</div>`:''}</div>`}
@@ -566,7 +710,7 @@ function ensureMonth(k){
   const src=prev?S.months[prev]:EMPTY_MONTH();
   const cp=arr=>(arr||[]).map(x=>({...x,id:uid(),done:false}));
   S.months[k]={income:cp(src.income),budget:(src.budget||[]).map(x=>({id:uid(),label:x.label,amt:x.amt})),
-    savings:(src.savings||[]).map(x=>({...x,id:uid(),amt:Math.round(savBal(x)*100)/100,done:false})),fixed:cp(src.fixed),bills:cp(src.bills),gave:cp(src.gave),expenses:[]};
+    savings:(src.savings||[]).map(x=>({...x,id:uid(),amt:Math.round(savBal(x)*100)/100,done:false})),fixed:cp(src.fixed),bills:cp(src.bills),gave:cp(src.gave),expenses:[],settles:[],housePlan:Number(src.housePlan)||0,fundIns:[]};
   return S.months[k];
 }
 function openExp(c){
@@ -576,6 +720,10 @@ function openExp(c){
   const [y,mo]=cur.split('-').map(Number);
   $('edate').value=e.date||(cur===thisMonth?todayStr():cur+'-01');
   const m=M()||S.months[thisMonth]||{budget:[]};
+  ectx.scope=e.scope||c.scope||(spendMode==='house'&&tab==='spending'?'house':'me');
+  if(ectx.scope==='house'&&!hasHouse()) ectx.scope='me';
+  ectx.paidBy=e.paidBy||ME(); ectx.split=e.split?[...e.split]:MEMBERS().map(p=>p.name);
+  drawScope();
   const cats=[...new Set([...(m.budget||[]).map(b=>b.label),...(c.item&&e.cat!=='Other'?[e.cat]:[]),'Other'])];
   ectx.cat=e.cat||c.cat||(cats.length>1?'':'Other');
   $('ecats').innerHTML=cats.map(k=>`<button type="button" class="${CHIP}" data-c="${esc(k)}" aria-pressed="${k===ectx.cat}"><span class="mr-1.5 inline-block size-2 rounded-full align-middle" style="background:${M()?catColor(M(),k):OTHER_COLOR}"></span>${esc(k)}</button>`).join('');
@@ -583,6 +731,25 @@ function openExp(c){
   $('edel').classList.toggle('hidden',!c.item);
   $('edlg').showModal(); setTimeout(()=>$('eamt2').focus(),60);
 }
+function drawScope(){
+  const hs=ectx.scope==='house';
+  $('escope').innerHTML=[['me','Personal'],['house','Household']].map(([v,l])=>`<button type="button" role="radio" aria-checked="${ectx.scope===v}" data-s="${v}" class="min-h-10 rounded-full text-sm font-semibold text-teal-900/60 aria-checked:bg-teal-800 aria-checked:text-white dark:text-teal-200/70 dark:aria-checked:bg-reef dark:aria-checked:text-teal-950">${l}</button>`).join('');
+  $('ehouse').classList.toggle('hidden',!hs||FUND()); $('efund').classList.toggle('hidden',!(hs&&FUND()));
+  if(hs&&FUND()) $('efund').textContent=`Paid from the household fund (managed by ${houseName(FUND_MGR())}). Fund balance ${fmt(fundBalance(cur))}.`;
+  if(hs&&!FUND()){
+    $('epaid').innerHTML=MEMBERS().map(p=>`<button type="button" class="${CHIP}" data-p="${esc(p.name)}" aria-pressed="${ectx.paidBy===p.name}">${esc(houseName(p.name))}</button>`).join('');
+    $('esplit').innerHTML=MEMBERS().map(p=>`<button type="button" class="${CHIP}" data-sp="${esc(p.name)}" aria-pressed="${ectx.split.includes(p.name)}">${esc(houseName(p.name))}</button>`).join('');
+    const amt=Number(($('eamt2').value||'').replace(/[,\s]/g,''))||0, n=ectx.split.length;
+    $('eshare').textContent=n&&amt?`${fmt(Math.round(amt/n*100)/100)} each`+(ectx.split.includes(ME())?'':' (you’re not in this split)'):'';
+  }
+}
+$('escope').onclick=e=>{const b=e.target.closest('[data-s]');if(!b)return;
+  if(b.dataset.s==='house'&&!hasHouse()){ $('edlg').close(); openMembers(()=>openExp({scope:'house'})); return; }
+  ectx.scope=b.dataset.s; drawScope();};
+$('epaid').onclick=e=>{const b=e.target.closest('[data-p]');if(!b)return;ectx.paidBy=b.dataset.p;drawScope()};
+$('esplit').onclick=e=>{const b=e.target.closest('[data-sp]');if(!b)return;const n=b.dataset.sp;
+  ectx.split=ectx.split.includes(n)?ectx.split.filter(x=>x!==n):[...ectx.split,n]; $('eserr').textContent=''; drawScope()};
+$('eamt2').addEventListener('input',()=>{if(ectx&&ectx.scope==='house')drawScope()});
 $('ecats').onclick=e=>{const b=e.target.closest('[data-c]');if(!b)return;ectx.cat=b.dataset.c;$('ecerr').textContent='';[...$('ecats').children].forEach(x=>x.setAttribute('aria-pressed',x===b))};
 $('ecancel').onclick=()=>$('edlg').close();
 $('edlg').addEventListener('click',e=>{if(e.target===$('edlg'))$('edlg').close()});
@@ -596,14 +763,96 @@ $('eform').onsubmit=ev=>{
   const raw=$('eamt2').value.replace(/[,\s]/g,''), amt=Number(raw);
   if(!raw||!isFinite(amt)||amt<=0||amt>=1e12){$('eerr').textContent='Enter the amount, e.g. 250';$('eamt2').setAttribute('aria-invalid','true');$('eamt2').focus();return}
   if(!ectx.cat){$('ecerr').textContent='Pick a category';return}
+  if(ectx.scope==='house'&&!FUND()&&!ectx.split.length){$('eserr').textContent='Choose at least one person to share it';return}
   const date=DATE_RE.test($('edate').value)?$('edate').value:todayStr();
   const undo=snapshot();
   const rec={id:ectx.item?ectx.item.id:uid(),date,amt:money(amt),cat:str(ectx.cat)||'Other',note:str($('enote').value)};
+  if(ectx.scope==='house'){rec.scope='house'; if(FUND()){rec.paidBy='__fund';rec.split=[];} else {rec.paidBy=ectx.paidBy;rec.split=[...ectx.split];}}
   if(ectx.item){ const om=S.months[monthOf(ectx.item.date)]; if(om){const i=om.expenses.indexOf(ectx.item); if(i>=0) om.expenses.splice(i,1);} }
   const tm=ensureMonth(monthOf(date)); tm.expenses.push(rec);
   const moved=monthOf(date)!==cur;
   $('edlg').close(); save(); render();
-  toast(ectx.item?'Expense updated':`${fmt(rec.amt)} · ${rec.cat}`+(moved?` (saved in ${mlabel(monthOf(date))})`:''),undo);
+  toast(ectx.item?'Expense updated':`${fmt(rec.amt)} · ${rec.scope==='house'?'Household':rec.cat}`+(moved?` (saved in ${mlabel(monthOf(date))})`:''),undo);
+};
+
+/* ================= Household members sheet ================= */
+let mDraft=[], mNext=null;
+function openMembers(next){
+  mNext=next||null;
+  mDraft=MEMBERS().length?MEMBERS().map(p=>({...p})):(()=>{ // prefill from House contributions
+    const g=(M()||{gave:[]}).gave||[]; const list=g.map(x=>({name:x.label,...(x.me?{me:true}:{})}));
+    if(!list.some(p=>p.me)) list.unshift({name:'You',me:true}); return list;})();
+  $('mplan').value=M()&&M().housePlan?M().housePlan:'';
+  mMode=S.houseMode==='fund'?'fund':'split'; mMgr=S.fundManager||'';
+  drawMembers(); drawMode(); $('merr').textContent=''; $('mdlg').showModal();
+}
+let mMode='split', mMgr='';
+function drawMode(){
+  $('mmode').innerHTML=[['split','Split each purchase'],['fund','Shared fund']].map(([v,l])=>`<button type="button" role="radio" aria-checked="${mMode===v}" data-mm="${v}" class="min-h-10 rounded-full text-sm font-semibold text-teal-900/60 aria-checked:bg-teal-800 aria-checked:text-white dark:text-teal-200/70 dark:aria-checked:bg-reef dark:aria-checked:text-teal-950">${l}</button>`).join('');
+  $('mmodehint').textContent=mMode==='fund'?'Everyone pays into one fund. One person manages it and buys for the house.':'Whoever pays, the cost is split. Tally shows who owes whom.';
+  $('mmgrwrap').classList.toggle('hidden',mMode!=='fund');
+  const names=mDraft.map(p=>str(p.name,30)).filter(Boolean); if(!names.includes(mMgr)) mMgr=names[0]||'';
+  $('mmgr').innerHTML=names.map(n=>`<button type="button" class="${CHIP}" data-mg="${esc(n)}" aria-pressed="${n===mMgr}">${esc(n)}</button>`).join('');
+  $('lplan').textContent=mMode==='fund'?'Fund target this month, everyone together (optional)':'Household budget this month (optional)';
+}
+$('mmode').onclick=e=>{const b=e.target.closest('[data-mm]');if(!b)return;mMode=b.dataset.mm;drawMode()};
+$('mmgr').onclick=e=>{const b=e.target.closest('[data-mg]');if(!b)return;mMgr=b.dataset.mg;drawMode()};
+function drawMembers(){
+  $('mlist').innerHTML=mDraft.map((p,i)=>`<div class="flex items-center gap-2">
+    <input class="input flex-1" data-mi="${i}" value="${esc(p.name)}" maxlength="30" aria-label="Name">
+    <button type="button" data-me="${i}" aria-pressed="${!!p.me}" class="min-h-12 flex-none rounded-2xl border border-line px-3 text-sm font-semibold text-teal-900/60 aria-pressed:border-teal-700 aria-pressed:bg-teal-50 aria-pressed:text-teal-900 dark:border-teal-700 dark:text-teal-200/70 dark:aria-pressed:border-reef dark:aria-pressed:bg-teal-800 dark:aria-pressed:text-reef">${p.me?'This is me':'Me?'}</button>
+    <button type="button" data-mx="${i}" class="grid size-12 flex-none place-items-center rounded-2xl text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-400/10" aria-label="Remove ${esc(p.name)}"><svg class="icon size-5" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join('');
+}
+$('mlist').addEventListener('input',e=>{const i=e.target.dataset.mi;if(i!=null){mDraft[+i].name=e.target.value;drawMode()}});
+$('mlist').addEventListener('click',e=>{const a=e.target.closest('[data-me]'),x=e.target.closest('[data-mx]');
+  if(a){mDraft.forEach((p,i)=>{if(i===+a.dataset.me)p.me=true;else delete p.me});drawMembers()}
+  if(x){mDraft.splice(+x.dataset.mx,1);drawMembers();drawMode()}});
+$('madd').onclick=()=>{if(mDraft.length>=12)return;mDraft.push({name:''});drawMembers();$('mlist').querySelector(`[data-mi="${mDraft.length-1}"]`).focus()};
+$('mcancel').onclick=()=>{$('mdlg').close();mNext=null};
+$('mdlg').addEventListener('click',e=>{if(e.target===$('mdlg')){$('mdlg').close();mNext=null}});
+$('mform').onsubmit=e=>{
+  e.preventDefault();
+  const list=mDraft.map(p=>({...p,name:str(p.name,30)})).filter(p=>p.name);
+  const lower=list.map(p=>p.name.toLowerCase());
+  if(list.length<2){$('merr').textContent='Add at least 2 people, including you.';return}
+  if(new Set(lower).size!==lower.length){$('merr').textContent='Each person needs a different name.';return}
+  if(!list.some(p=>p.me)){$('merr').textContent='Tap “Me?” next to your own name.';return}
+  const rawP=$('mplan').value.replace(/[,\s]/g,''), plan=rawP===''?0:Number(rawP);
+  if(!isFinite(plan)||plan<0||plan>=1e12){$('merr').textContent='Enter a valid household budget, or leave it empty.';return}
+  const undo=snapshot();
+  // rename references when a name changed in place
+  const old=MEMBERS();
+  old.forEach((p,i)=>{ const nw=mDraft[i]&&str(mDraft[i].name,30); if(nw&&nw!==p.name&&!old.some(q=>q.name===nw)){
+    for(const k in S.months){ const m=S.months[k];
+      m.expenses.forEach(x=>{ if(isHouse(x)){ if(x.paidBy===p.name)x.paidBy=nw; x.split=x.split.map(n=>n===p.name?nw:n);} });
+      (m.settles||[]).forEach(t=>{ if(t.from===p.name)t.from=nw; if(t.to===p.name)t.to=nw; }); } } });
+  // rename references to the manager and fund payments too
+  old.forEach((p,i)=>{ const nw=mDraft[i]&&str(mDraft[i].name,30); if(nw&&nw!==p.name){ if(mMgr===p.name) mMgr=nw;
+    for(const k in S.months) (S.months[k].fundIns||[]).forEach(x=>{ if(x.from===p.name) x.from=nw; }); } });
+  S.members=list.map(p=>p.me?{name:p.name,me:true}:{name:p.name});
+  S.houseMode=mMode; S.fundManager=list.some(p=>p.name===mMgr)?mMgr:list[0].name;
+  const mm=ensureMonth(cur); mm.housePlan=money(plan);
+  $('mdlg').close(); save(); render(); toast('Household saved',undo);
+  const n=mNext; mNext=null; n&&n();
+};
+
+/* ================= Pay into fund sheet ================= */
+let fFrom='';
+function openFundIn(from,amt){
+  fFrom=from||ME();
+  $('fifrom').innerHTML=MEMBERS().map(p=>`<button type="button" class="${CHIP}" data-f="${esc(p.name)}" aria-pressed="${p.name===fFrom}">${esc(houseName(p.name))}</button>`).join('');
+  $('fiamt').value=amt||''; $('fidate').value=cur===thisMonth?todayStr():cur+'-01'; $('fierr').textContent='';
+  $('fdlg').showModal(); setTimeout(()=>$('fiamt').focus(),60);
+}
+$('fifrom').onclick=e=>{const b=e.target.closest('[data-f]');if(!b)return;fFrom=b.dataset.f;[...$('fifrom').children].forEach(x=>x.setAttribute('aria-pressed',x===b))};
+$('fcancel').onclick=()=>$('fdlg').close();
+$('fdlg').addEventListener('click',e=>{if(e.target===$('fdlg'))$('fdlg').close()});
+$('fform').onsubmit=e=>{
+  e.preventDefault(); const v=Number($('fiamt').value.replace(/[,\s]/g,''));
+  if(!(v>0)||!isFinite(v)||v>=1e12){$('fierr').textContent='Enter the amount paid in, e.g. 1500';return}
+  const d=DATE_RE.test($('fidate').value)?$('fidate').value:todayStr();
+  const undo=snapshot(); ensureMonth(monthOf(d)).fundIns.push({id:uid(),date:d,from:fFrom,amt:money(v)});
+  $('fdlg').close(); save(); render(); toast(`${fmt(v)} from ${houseName(fFrom)} added to the fund`,undo);
 };
 
 /* ================= Backup ================= */
@@ -808,7 +1057,16 @@ document.addEventListener('click',async e=>{
   if(a==='all'){const undo=snapshot();const arr=M()[list];const v=!arr.every(x=>x.done);arr.forEach(x=>x.done=v);save();render();toast(v?'All ticked':'All unticked',undo)}
   if(a==='edit') openDlg({list,item:M()[list].find(i=>i.id===id)});
   if(a==='add') openDlg({list,who:t.dataset.who,label:t.dataset.label});
-  if(a==='addexp') openExp({cat:t.dataset.cat});
+  if(a==='addexp') openExp({cat:t.dataset.cat,scope:t.dataset.scope});
+  if(a==='mode'){ spendMode=t.dataset.v; spendFilter=''; render(); }
+  if(a==='members') openMembers();
+  if(a==='fundin') openFundIn(t.dataset.from,t.dataset.amt);
+  if(a==='unfund'){ const undo=snapshot(); const m=M(); m.fundIns=m.fundIns.filter(x=>x.id!==id); save(); render(); toast('Payment removed',undo); }
+  if(a==='settle'){ const from=t.dataset.from,to=t.dataset.to,amt=Number(t.dataset.amt);
+    if(!await confirmSheet(`Record ${fmt(amt)} payment?`,`${houseName(from)} paid ${houseName(to)} ${fmt(amt)}. Balances will update.`,'Record payment')) return;
+    const undo=snapshot(); const d=cur===thisMonth?todayStr():cur+'-01'; ensureMonth(monthOf(d)).settles.push({id:uid(),date:d,from,to,amt:money(amt)});
+    save(); render(); toast('Payment recorded',undo); }
+  if(a==='unsettle'){ const undo=snapshot(); const m=M(); m.settles=m.settles.filter(x=>x.id!==id); save(); render(); toast('Settlement removed',undo); }
   if(a==='editexp') openExp({item:M().expenses.find(i=>i.id===id)});
   if(a==='filter'){ spendFilter=spendFilter===t.dataset.cat?'':t.dataset.cat; if(tab!=='spending') go('spending'); else render(); }
   if(a==='addacct') openDlg({list:'accounts'});
@@ -834,7 +1092,8 @@ document.addEventListener('click',async e=>{
     const undo=snapshot(); delete S.months[cur]; save(); render(); toast(`${mlabel(cur)} deleted`,undo);
   }
 });
-function go(t){tab=t; try{history.replaceState(null,'','#'+t)}catch(_){} render(); $('app').focus({preventScroll:true}); window.scrollTo({top:0});}
+function go(t){ if(t==='household'){ spendMode='house'; t='spending'; } else if(t==='spending'&&tab!=='spending') spendMode='me';
+  tab=t; try{history.replaceState(null,'','#'+t)}catch(_){} render(); $('app').focus({preventScroll:true}); window.scrollTo({top:0});}
 document.querySelectorAll('#nav [data-tab]').forEach(b=>b.onclick=()=>go(b.dataset.tab));
 $('fab').onclick=()=>openExp({});
 $('gear').onclick=()=>go('more');
